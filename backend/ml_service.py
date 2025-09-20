@@ -107,7 +107,7 @@ class LogoDetectionService:
                         
                         # Draw bounding box
                         color = self._get_color_for_class(class_id)
-                        cv2.rectangle(annotated_image, (x1, y1), (x2, y2), color, 2)
+                        cv2.rectangle(annotated_image, (x1, y1), (x2, y2), color, self.bbox_thickness)
                         
                         # Draw label
                         label = f"{class_name}: {conf:.2f}"
