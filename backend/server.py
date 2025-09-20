@@ -127,6 +127,15 @@ async def get_model_info():
     model_info = ml_service.get_model_info()
     return ModelInfo(**model_info)
 
+@api_router.post("/model/confidence")
+async def update_confidence_threshold(threshold: float):
+    """Update model confidence threshold"""
+    if not 0.1 <= threshold <= 0.9:
+        raise HTTPException(status_code=400, detail="Threshold must be between 0.1 and 0.9")
+    
+    ml_service.update_confidence_threshold(threshold)
+    return {"message": f"Confidence threshold updated to {threshold}"}
+
 @api_router.post("/model/bbox-thickness")
 async def update_bbox_thickness(thickness: int):
     """Update bounding box thickness"""
