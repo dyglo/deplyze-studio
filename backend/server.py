@@ -127,14 +127,117 @@ async def get_model_info():
     model_info = ml_service.get_model_info()
     return ModelInfo(**model_info)
 
-@api_router.post("/model/confidence")
-async def update_confidence_threshold(threshold: float):
-    """Update model confidence threshold"""
-    if not 0.1 <= threshold <= 0.9:
-        raise HTTPException(status_code=400, detail="Threshold must be between 0.1 and 0.9")
+@api_router.post("/model/bbox-thickness")
+async def update_bbox_thickness(thickness: int):
+    """Update bounding box thickness"""
+    if not 1 <= thickness <= 10:
+        raise HTTPException(status_code=400, detail="Thickness must be between 1 and 10")
     
-    ml_service.update_confidence_threshold(threshold)
-    return {"message": f"Confidence threshold updated to {threshold}"}
+    ml_service.update_bbox_thickness(thickness)
+    return {"message": f"Bounding box thickness updated to {thickness}"}
+
+@api_router.post("/detect/video", response_model=VideoProcessingResult)
+async def process_video_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """
+    Process uploaded video file with logo detection
+    """
+    try:
+        # Validate file type
+        if not file.content_type.startswith('video/'):
+            raise HTTPException(status_code=400, detail="File must be a video")
+        
+        # Create temporary directories
+        temp_dir = Path(tempfile.mkdtemp())
+        input_path = temp_dir / f"input_{uuid.uuid4().hex[:8]}.mp4"
+        output_path = temp_dir / f"output_{uuid.uuid4().hex[:8]}.mp4"
+        
+        # Save uploaded file
+        with open(input_path, "wb") as buffer:
+            contents = await file.read()
+            buffer.write(contents)
+        
+        logging.info(f"Processing video file: {file.filename}, Size: {len(contents)} bytes")
+        
+        # Process video
+        result = ml_service.process_video_file(str(input_path), str(output_path))
+        
+        if not result.get("success", False):
+            raise HTTPException(status_code=500, detail=result.get("error", "Video processing failed"))
+        
+        # Move output to permanent location
+        output_dir = Path("/tmp/processed_videos")
+        output_dir.mkdir(exist_ok=True)
+        
+        final_output_name = f"processed_{uuid.uuid4().hex[:8]}.mp4"
+        final_output_path = output_dir / final_output_name
+        
+        shutil.move(str(output_path), str(final_output_path))
+        
+        # Schedule cleanup of temp directory
+        background_tasks.add_task(cleanup_temp_dir, temp_dir)
+        
+        # Create response
+        video_result = VideoProcessingResult(
+            success=result["success"],
+            processed_frames=result["processed_frames"],
+            total_detections=result["total_detections"],
+            processing_time=result["processing_time"],
+            fps=result["fps"],
+            resolution=result["resolution"],
+            avg_detections_per_frame=result["avg_detections_per_frame"],
+            output_filename=final_output_name
+        )
+        
+        # Save to database
+        try:
+            await db.video_processing.insert_one(video_result.dict())
+        except Exception as e:
+            logging.warning(f"Failed to save video processing result: {e}")
+        
+        return video_result
+        
+    except Exception as e:
+        logging.error(f"Error in video processing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/download/video/{filename}")
+async def download_processed_video(filename: str):
+    """
+    Download processed video file
+    """
+    try:
+        file_path = Path("/tmp/processed_videos") / filename
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        return FileResponse(
+            path=str(file_path),
+            filename=f"logo_detection_{filename}",
+            media_type="video/mp4"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error downloading video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/video/history")
+async def get_video_processing_history(limit: int = 10):
+    """Get recent video processing history"""
+    try:
+        history = await db.video_processing.find().sort("timestamp", -1).limit(limit).to_list(length=None)
+        return history
+    except Exception as e:
+        logging.error(f"Error getting video history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def cleanup_temp_dir(temp_dir: Path):
+    """Background task to clean up temporary directory"""
+    try:
+        shutil.rmtree(temp_dir)
+        logging.info(f"Cleaned up temp directory: {temp_dir}")
+    except Exception as e:
+        logging.warning(f"Failed to cleanup temp directory {temp_dir}: {e}")
 
 @api_router.post("/detect/image", response_model=DetectionResult)
 async def detect_logos_in_image(file: UploadFile = File(...)):
