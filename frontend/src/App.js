@@ -29,6 +29,7 @@ function App() {
   
   // Refs
   const fileInputRef = useRef(null);
+  const videoFileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
