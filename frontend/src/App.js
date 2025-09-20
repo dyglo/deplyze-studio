@@ -267,7 +267,7 @@ function App() {
 
         {/* Main Content */}
         <div className="max-w-6xl mx-auto">
-          <Tabs defaultValue="image" className="space-y-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="grid w-full grid-cols-2 bg-white/80 backdrop-blur-sm border border-slate-200">
               <TabsTrigger value="image" className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
