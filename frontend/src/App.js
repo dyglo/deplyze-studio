@@ -479,16 +479,92 @@ function App() {
               )}
             </TabsContent>
 
-            {/* Video Detection Tab */}
+            {/* Video Processing Tab */}
             <TabsContent value="video" className="space-y-6">
-              <div className="grid lg:grid-cols-3 gap-6">
-                {/* Video Stream */}
-                <div className="lg:col-span-2">
+              {/* Controls Section */}
+              <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    Detection Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Adjust detection parameters for optimal results
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Bounding Box Thickness: {bboxThickness}px</label>
+                    <Slider
+                      value={[bboxThickness]}
+                      onValueChange={(value) => updateBboxThickness(value[0])}
+                      max={10}
+                      min={1}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>1px (Thin)</span>
+                      <span>10px (Thick)</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Video Upload and Processing */}
+                <div className="space-y-6">
+                  {/* Video File Upload */}
+                  <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Video className="w-5 h-5" />
+                        Upload Video File
+                      </CardTitle>
+                      <CardDescription>
+                        Upload a video file for logo detection processing
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div 
+                        className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                        onClick={() => videoFileInputRef.current?.click()}
+                      >
+                        {uploadedVideo ? (
+                          <video src={uploadedVideo} controls className="max-h-48 mx-auto rounded-lg" />
+                        ) : (
+                          <div className="space-y-2">
+                            <Video className="w-12 h-12 mx-auto text-slate-400" />
+                            <p className="text-slate-600">Click to upload a video</p>
+                            <p className="text-sm text-slate-400">MP4, AVI, MOV up to 100MB</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <input
+                        type="file"
+                        ref={videoFileInputRef}
+                        onChange={handleVideoUpload}
+                        accept="video/*"
+                        className="hidden"
+                      />
+                      
+                      <Button 
+                        onClick={() => videoFileInputRef.current?.click()}
+                        disabled={videoProcessing}
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      >
+                        {videoProcessing ? 'Processing...' : 'Select Video'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Real-time Camera */}
                   <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Camera className="w-5 h-5" />
-                        Live Video Feed
+                        Live Camera Feed
                       </CardTitle>
                       <CardDescription>
                         Real-time logo detection from your camera
@@ -501,12 +577,12 @@ function App() {
                           autoPlay
                           muted
                           className="w-full rounded-lg bg-slate-900"
-                          style={{ maxHeight: '400px' }}
+                          style={{ maxHeight: '300px' }}
                         />
                         <canvas
                           ref={canvasRef}
                           className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                          style={{ maxHeight: '400px' }}
+                          style={{ maxHeight: '300px' }}
                         />
                       </div>
                       
@@ -517,7 +593,7 @@ function App() {
                             className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                           >
                             <Play className="w-4 h-4 mr-2" />
-                            Start Detection
+                            Start Camera
                           </Button>
                         ) : (
                           <Button 
@@ -525,7 +601,7 @@ function App() {
                             variant="destructive"
                           >
                             <Square className="w-4 h-4 mr-2" />
-                            Stop Detection
+                            Stop Camera
                           </Button>
                         )}
                       </div>
@@ -533,41 +609,108 @@ function App() {
                   </Card>
                 </div>
 
-                {/* Live Results */}
-                <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="w-5 h-5" />
-                      Live Results
-                    </CardTitle>
-                    <CardDescription>
-                      Current frame detections
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {isVideoStreaming ? (
-                      <div className="space-y-3">
-                        {videoDetections.length > 0 ? (
-                          videoDetections.map((detection, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                              <span className="text-sm font-medium">{detection.class_name}</span>
-                              <Badge 
-                                variant="secondary"
-                                style={{ backgroundColor: getColorForClass(index) + '20', color: getColorForClass(index) }}
-                              >
-                                {(detection.confidence * 100).toFixed(1)}%
-                              </Badge>
+                {/* Results Section */}
+                <div className="space-y-6">
+                  {/* Video Processing Results */}
+                  <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="w-5 h-5" />
+                        Processing Results
+                      </CardTitle>
+                      <CardDescription>
+                        Video processing statistics and download
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {videoProcessing ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full w-4 h-4 border-2 border-purple-600 border-t-transparent"></div>
+                            <span className="text-sm text-slate-600">Processing video...</span>
+                          </div>
+                          <Progress value={50} className="h-2" />
+                          <p className="text-xs text-slate-500">This may take several minutes depending on video length</p>
+                        </div>
+                      ) : videoResults ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-3 bg-slate-50 rounded-lg">
+                              <div className="text-2xl font-bold text-purple-600">{videoResults.processed_frames}</div>
+                              <div className="text-sm text-slate-600">Frames Processed</div>
                             </div>
-                          ))
-                        ) : (
-                          <p className="text-slate-400 text-sm">No logos detected</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-slate-400 text-center py-8">Start video detection to see results</p>
-                    )}
-                  </CardContent>
-                </Card>
+                            <div className="text-center p-3 bg-slate-50 rounded-lg">
+                              <div className="text-2xl font-bold text-purple-600">{videoResults.total_detections}</div>
+                              <div className="text-sm text-slate-600">Total Detections</div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Processing Time:</span>
+                              <span>{videoResults.processing_time.toFixed(2)}s</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Resolution:</span>
+                              <span>{videoResults.resolution}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>FPS:</span>
+                              <span>{videoResults.fps}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Avg Detections/Frame:</span>
+                              <span>{videoResults.avg_detections_per_frame.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          
+                          <Button onClick={downloadProcessedVideo} className="w-full">
+                            <Download className="w-4 h-4 mr-2" />
+                            Download Processed Video
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-center py-8">Upload a video to see processing results</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Live Camera Results */}
+                  <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Camera className="w-5 h-5" />
+                        Live Detections
+                      </CardTitle>
+                      <CardDescription>
+                        Current camera frame detections
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isVideoStreaming ? (
+                        <div className="space-y-3">
+                          {videoDetections.length > 0 ? (
+                            videoDetections.map((detection, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                                <span className="text-sm font-medium">{detection.class_name}</span>
+                                <Badge 
+                                  variant="secondary"
+                                  style={{ backgroundColor: getColorForClass(index) + '20', color: getColorForClass(index) }}
+                                >
+                                  {(detection.confidence * 100).toFixed(1)}%
+                                </Badge>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-slate-400 text-sm">No objects detected</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-center py-8">Start camera to see live detections</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
