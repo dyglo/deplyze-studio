@@ -84,7 +84,21 @@ class ModelInfo(BaseModel):
     confidence_threshold: float
     iou_threshold: float
     max_inference_size: int
+    bbox_thickness: int
     available_classes: List[str]
+
+class VideoProcessingResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    success: bool
+    processed_frames: int
+    total_detections: int
+    processing_time: float
+    fps: int
+    resolution: str
+    avg_detections_per_frame: float
+    output_filename: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    error: Optional[str] = None
 
 # Helper functions
 def numpy_to_base64(image_array: np.ndarray) -> str:
