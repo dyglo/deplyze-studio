@@ -49,6 +49,74 @@ function App() {
     }
   };
 
+  const updateBboxThickness = async (thickness) => {
+    try {
+      await axios.post(`${API}/model/bbox-thickness?thickness=${thickness}`);
+      setBboxThickness(thickness);
+      toast.success(`Bounding box thickness updated to ${thickness}px`);
+    } catch (error) {
+      console.error('Error updating bbox thickness:', error);
+      toast.error('Failed to update bounding box thickness');
+    }
+  };
+
+  const handleVideoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setVideoProcessing(true);
+    setVideoResults(null);
+
+    try {
+      // Show uploaded video preview
+      const videoUrl = URL.createObjectURL(file);
+      setUploadedVideo(videoUrl);
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', file);
+
+      toast.info(`Processing video: ${file.name}. This may take a while...`);
+
+      // Process video
+      const response = await axios.post(`${API}/detect/video`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 300000 // 5 minutes timeout for video processing
+      });
+
+      setVideoResults(response.data);
+      toast.success(`Video processed! Found ${response.data.total_detections} detections in ${response.data.processed_frames} frames`);
+
+    } catch (error) {
+      console.error('Error processing video:', error);
+      toast.error('Failed to process video. Please try a smaller file.');
+    } finally {
+      setVideoProcessing(false);
+    }
+  };
+
+  const downloadProcessedVideo = async () => {
+    if (!videoResults?.output_filename) return;
+
+    try {
+      const response = await axios.get(`${API}/download/video/${videoResults.output_filename}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `logo_detection_${videoResults.output_filename}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Video download started!');
+    } catch (error) {
+      console.error('Error downloading video:', error);
+      toast.error('Failed to download processed video');
+    }
+  };
+
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
