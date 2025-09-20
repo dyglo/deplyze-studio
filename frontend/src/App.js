@@ -244,7 +244,7 @@ function App() {
       
       // Draw bounding box
       ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = bboxThickness || 3;
       ctx.strokeRect(bbox.x1, bbox.y1, bbox.width, bbox.height);
       
       // Draw label background
