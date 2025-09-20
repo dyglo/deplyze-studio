@@ -352,8 +352,8 @@ function App() {
                 Image Detection
               </TabsTrigger>
               <TabsTrigger value="video" className="flex items-center gap-2">
-                <Camera className="w-4 h-4" />
-                Real-time Video
+                <Video className="w-4 h-4" />
+                Video Processing
               </TabsTrigger>
             </TabsList>
 
