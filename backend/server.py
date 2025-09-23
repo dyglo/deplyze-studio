@@ -79,13 +79,26 @@ class StatusCheckCreate(BaseModel):
     client_name: str
 
 class ModelInfo(BaseModel):
-    model_path: str
     device: str
     confidence_threshold: float
     iou_threshold: float
     max_inference_size: int
     bbox_thickness: int
+    active_model: str
+    available_models: Dict[str, Any]
     available_classes: List[str]
+
+class BatchProcessingResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    success: bool
+    total_images: int
+    processed_images: int
+    failed_images: int
+    total_detections: int
+    processing_time: float
+    results_archive: Optional[str] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    error: Optional[str] = None
 
 class VideoProcessingResult(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
