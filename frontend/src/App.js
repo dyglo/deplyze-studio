@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Badge } from './components/ui/badge';
 import { Progress } from './components/ui/progress';
-import { Slider } from './components/ui/slider';
-import { Upload, Camera, Play, Square, Download, Zap, Target, Clock, Video, Settings } from 'lucide-react';
+import { Upload, Camera, Play, Square, Download, Zap, Target, Clock, Video, Eye } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
