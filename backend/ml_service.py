@@ -488,12 +488,14 @@ class LogoDetectionService:
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information"""
+        current_model = self.get_current_model()
         return {
-            "model_path": self.model_path,
             "device": self.device,
             "confidence_threshold": self.confidence_threshold,
             "iou_threshold": self.iou_threshold,
             "max_inference_size": self.max_inference_size,
             "bbox_thickness": self.bbox_thickness,
-            "available_classes": list(self.model.names.values()) if self.model else []
+            "active_model": self.model_manager.active_model_name,
+            "available_models": self.model_manager.list_models(),
+            "available_classes": current_model["classes"] if current_model else []
         }
