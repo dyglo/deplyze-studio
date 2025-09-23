@@ -309,11 +309,11 @@ function App() {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-6">
-            <Target className="w-8 h-8 text-white" />
+            <Eye className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">Logo Detection AI</h1>
+          <h1 className="text-4xl font-bold text-slate-900 mb-4">VisionFlow</h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Detect and identify brand logos in images and real-time video using advanced YOLO11n AI technology
+            Advanced AI-powered object detection in images and real-time video using YOLO11n technology
           </p>
           
           {/* Model Info */}
