@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Upload, Camera, Play, Square, Download, Zap, Target, Clock, Video, Eye, Layers, Package, BarChart3 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import BatchTab from './components/BatchTab';
+import ModelTab from './components/ModelTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
