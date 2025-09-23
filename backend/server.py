@@ -149,32 +149,150 @@ async def update_confidence_threshold(threshold: float):
     ml_service.update_confidence_threshold(threshold)
     return {"message": f"Confidence threshold updated to {threshold}"}
 
-@api_router.get("/download/image/{image_id}")
-async def download_annotated_image(image_id: str):
+@api_router.post("/model/upload")
+async def upload_custom_model(background_tasks: BackgroundTasks, file: UploadFile = File(...), model_name: str = "custom_model"):
     """
-    Download annotated image by ID
+    Upload a custom YOLO model
     """
     try:
-        # Get detection result from database
-        detection = await db.detection_history.find_one({"id": image_id})
-        if not detection:
-            raise HTTPException(status_code=404, detail="Image not found")
+        # Validate file type
+        if not file.filename.endswith(('.pt', '.onnx')):
+            raise HTTPException(status_code=400, detail="Model file must be .pt or .onnx format")
         
-        # Check if we have cached annotated image
-        image_path = Path(f"/tmp/annotated_images/{image_id}.jpg")
+        # Create temporary file
+        temp_path = f"/tmp/{uuid.uuid4().hex}_{file.filename}"
         
-        if not image_path.exists():
-            raise HTTPException(status_code=404, detail="Annotated image file not found")
+        with open(temp_path, "wb") as buffer:
+            contents = await file.read()
+            buffer.write(contents)
+        
+        # Upload model
+        result = ml_service.upload_custom_model(temp_path, model_name)
+        
+        # Schedule cleanup
+        background_tasks.add_task(cleanup_file, temp_path)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "model_name": result["model_name"],
+                "classes": result["classes"],
+                "message": result["message"]
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+            
+    except Exception as e:
+        logging.error(f"Error uploading custom model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/model/switch")
+async def switch_model(model_name: str):
+    """
+    Switch to a different model
+    """
+    try:
+        result = ml_service.switch_model(model_name)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+            
+    except Exception as e:
+        logging.error(f"Error switching model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/detect/batch/images", response_model=BatchProcessingResult)
+async def process_batch_images(background_tasks: BackgroundTasks, files: List[UploadFile] = File(...)):
+    """
+    Process multiple images in batch
+    """
+    try:
+        if len(files) > 50:  # Limit batch size
+            raise HTTPException(status_code=400, detail="Maximum 50 images per batch")
+        
+        # Create temp directory for batch
+        batch_dir = Path(f"/tmp/batch_{uuid.uuid4().hex}")
+        batch_dir.mkdir(exist_ok=True)
+        
+        # Save uploaded files
+        image_paths = []
+        for i, file in enumerate(files):
+            if not file.content_type.startswith('image/'):
+                continue
+            
+            file_path = batch_dir / f"image_{i}_{file.filename}"
+            with open(file_path, "wb") as buffer:
+                contents = await file.read()
+                buffer.write(contents)
+            
+            image_paths.append(str(file_path))
+        
+        # Process batch
+        result = ml_service.process_batch_images(image_paths)
+        
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Batch processing failed"))
+        
+        # Create results archive
+        archive_path = f"/tmp/batch_results_{uuid.uuid4().hex}.zip"
+        import zipfile
+        
+        with zipfile.ZipFile(archive_path, 'w') as zipf:
+            for batch_result in result["batch_results"]:
+                if "annotated_path" in batch_result:
+                    zipf.write(batch_result["annotated_path"], f"annotated_{batch_result['index']}.jpg")
+        
+        # Schedule cleanup
+        background_tasks.add_task(cleanup_temp_dir, batch_dir)
+        
+        # Create response
+        batch_response = BatchProcessingResult(
+            success=True,
+            total_images=result["summary"]["total_images"],
+            processed_images=result["summary"]["processed_images"],
+            failed_images=result["summary"]["failed_images"],
+            total_detections=result["summary"]["total_detections"],
+            processing_time=result["summary"]["processing_time"],
+            results_archive=Path(archive_path).name
+        )
+        
+        return batch_response
+        
+    except Exception as e:
+        logging.error(f"Error in batch processing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/download/batch/{archive_name}")
+async def download_batch_results(archive_name: str):
+    """
+    Download batch processing results archive
+    """
+    try:
+        file_path = Path(f"/tmp/{archive_name}")
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Archive not found")
         
         return FileResponse(
-            path=str(image_path),
-            filename=f"visionflow_annotated_{image_id}.jpg",
-            media_type="image/jpeg"
+            path=str(file_path),
+            filename=f"visionflow_batch_results.zip",
+            media_type="application/zip"
         )
         
     except Exception as e:
-        logging.error(f"Error downloading annotated image: {e}")
+        logging.error(f"Error downloading batch results: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def cleanup_file(file_path: str):
+    """Background task to clean up a file"""
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logging.info(f"Cleaned up file: {file_path}")
+    except Exception as e:
+        logging.warning(f"Failed to cleanup file {file_path}: {e}")
 
 @api_router.post("/detect/video", response_model=VideoProcessingResult)
 async def process_video_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
