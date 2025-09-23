@@ -149,6 +149,33 @@ async def update_confidence_threshold(threshold: float):
     ml_service.update_confidence_threshold(threshold)
     return {"message": f"Confidence threshold updated to {threshold}"}
 
+@api_router.get("/download/image/{image_id}")
+async def download_annotated_image(image_id: str):
+    """
+    Download annotated image by ID
+    """
+    try:
+        # Get detection result from database
+        detection = await db.detection_history.find_one({"id": image_id})
+        if not detection:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        # Check if we have cached annotated image
+        image_path = Path(f"/tmp/annotated_images/{image_id}.jpg")
+        
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="Annotated image file not found")
+        
+        return FileResponse(
+            path=str(image_path),
+            filename=f"visionflow_annotated_{image_id}.jpg",
+            media_type="image/jpeg"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error downloading annotated image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @api_router.post("/model/upload")
 async def upload_custom_model(background_tasks: BackgroundTasks, file: UploadFile = File(...), model_name: str = "custom_model"):
     """
