@@ -21,7 +21,6 @@ function App() {
   const [isVideoStreaming, setIsVideoStreaming] = useState(false);
   const [videoDetections, setVideoDetections] = useState([]);
   const [modelInfo, setModelInfo] = useState(null);
-  const [bboxThickness, setBboxThickness] = useState(2);
   const [uploadedVideo, setUploadedVideo] = useState(null);
   const [videoProcessing, setVideoProcessing] = useState(false);
   const [videoResults, setVideoResults] = useState(null);
