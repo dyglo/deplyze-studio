@@ -858,6 +858,28 @@ function App() {
                   </Card>
                 </div>
               </div>
+            {/* Batch Processing Tab */}
+            <TabsContent value="batch">
+              <BatchTab
+                batchInputRef={batchInputRef}
+                batchFiles={batchFiles}
+                batchProcessing={batchProcessing}
+                batchResults={batchResults}
+                handleBatchUpload={handleBatchUpload}
+                downloadBatchResults={downloadBatchResults}
+              />
+            </TabsContent>
+
+            {/* Model Management Tab */}
+            <TabsContent value="models">
+              <ModelTab
+                modelInfo={modelInfo}
+                selectedModel={selectedModel}
+                modelUploading={modelUploading}
+                modelInputRef={modelInputRef}
+                switchModel={switchModel}
+                handleCustomModelUpload={handleCustomModelUpload}
+              />
             </TabsContent>
           </Tabs>
         </div>
