@@ -47,17 +47,6 @@ function App() {
     }
   };
 
-  const updateBboxThickness = async (thickness) => {
-    try {
-      await axios.post(`${API}/model/bbox-thickness?thickness=${thickness}`);
-      setBboxThickness(thickness);
-      toast.success(`Bounding box thickness updated to ${thickness}px`);
-    } catch (error) {
-      console.error('Error updating bbox thickness:', error);
-      toast.error('Failed to update bounding box thickness');
-    }
-  };
-
   const handleVideoUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
