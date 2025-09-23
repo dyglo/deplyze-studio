@@ -136,14 +136,32 @@ async def update_confidence_threshold(threshold: float):
     ml_service.update_confidence_threshold(threshold)
     return {"message": f"Confidence threshold updated to {threshold}"}
 
-@api_router.post("/model/bbox-thickness")
-async def update_bbox_thickness(thickness: int):
-    """Update bounding box thickness"""
-    if not 1 <= thickness <= 10:
-        raise HTTPException(status_code=400, detail="Thickness must be between 1 and 10")
-    
-    ml_service.update_bbox_thickness(thickness)
-    return {"message": f"Bounding box thickness updated to {thickness}"}
+@api_router.get("/download/image/{image_id}")
+async def download_annotated_image(image_id: str):
+    """
+    Download annotated image by ID
+    """
+    try:
+        # Get detection result from database
+        detection = await db.detection_history.find_one({"id": image_id})
+        if not detection:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        # Check if we have cached annotated image
+        image_path = Path(f"/tmp/annotated_images/{image_id}.jpg")
+        
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="Annotated image file not found")
+        
+        return FileResponse(
+            path=str(image_path),
+            filename=f"visionflow_annotated_{image_id}.jpg",
+            media_type="image/jpeg"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error downloading annotated image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/detect/video", response_model=VideoProcessingResult)
 async def process_video_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
