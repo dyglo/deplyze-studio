@@ -416,7 +416,7 @@ function App() {
           </div>
           <h1 className="text-4xl font-bold text-slate-900 mb-4">VisionFlow</h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Advanced AI-powered object detection in images and real-time video using YOLO11n technology
+            Advanced AI-powered object detection with custom models, batch processing, and detailed analytics
           </p>
           
           {/* Model Info */}
