@@ -21,7 +21,7 @@ class LogoDetectionService:
         self.confidence_threshold = 0.25
         self.iou_threshold = 0.45
         self.max_inference_size = 640  # Optimize for CPU performance
-        self.bbox_thickness = 2  # Default bounding box thickness
+        self.bbox_thickness = 4  # Fixed bounding box thickness
         
         # Load model at initialization
         self._load_model()
