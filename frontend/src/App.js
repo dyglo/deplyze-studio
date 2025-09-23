@@ -473,36 +473,6 @@ function App() {
 
             {/* Video Processing Tab */}
             <TabsContent value="video" className="space-y-6">
-              {/* Controls Section */}
-              <Card className="bg-white/80 backdrop-blur-sm border-slate-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="w-5 h-5" />
-                    Detection Settings
-                  </CardTitle>
-                  <CardDescription>
-                    Adjust detection parameters for optimal results
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Bounding Box Thickness: {bboxThickness}px</label>
-                    <Slider
-                      value={[bboxThickness]}
-                      onValueChange={(value) => updateBboxThickness(value[0])}
-                      max={10}
-                      min={1}
-                      step={1}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-slate-500">
-                      <span>1px (Thin)</span>
-                      <span>10px (Thick)</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Video Upload and Processing */}
                 <div className="space-y-6">
@@ -514,7 +484,7 @@ function App() {
                         Upload Video File
                       </CardTitle>
                       <CardDescription>
-                        Upload a video file for logo detection processing
+                        Upload a video file for object detection processing
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -559,7 +529,7 @@ function App() {
                         Live Camera Feed
                       </CardTitle>
                       <CardDescription>
-                        Real-time logo detection from your camera
+                        Real-time object detection from your camera
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
