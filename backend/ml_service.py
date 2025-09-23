@@ -146,19 +146,26 @@ class LogoDetectionService:
     
     def detect_logos_in_image(self, image: np.ndarray) -> Dict[str, Any]:
         """
-        Detect logos in a single image
+        Detect objects in a single image with detailed classification and confidence
         
         Args:
             image: OpenCV image (BGR format)
             
         Returns:
-            Detection results with bounding boxes and labels
+            Detection results with detailed classification info
         """
         try:
             start_time = time.time()
             
+            # Get current model
+            current_model = self.get_current_model()
+            if not current_model:
+                raise Exception("No model loaded")
+            
+            model = current_model["model"]
+            
             # Run inference
-            results = self.model.predict(
+            results = model.predict(
                 image,
                 device=self.device,
                 conf=self.confidence_threshold,
@@ -170,6 +177,7 @@ class LogoDetectionService:
             # Process results
             detections = []
             annotated_image = image.copy()
+            total_confidence = 0
             
             if results and len(results) > 0:
                 result = results[0]  # First result
@@ -183,40 +191,77 @@ class LogoDetectionService:
                     for i, (box, conf, class_id) in enumerate(zip(boxes, confidences, class_ids)):
                         x1, y1, x2, y2 = map(int, box)
                         
-                        # Get class name (for now using class_id, later we'll map to logo brands)
-                        class_name = self.model.names.get(int(class_id), f"Logo_{int(class_id)}")
+                        # Get class name
+                        class_name = model.names.get(int(class_id), f"Object_{int(class_id)}")
                         
-                        # Add detection
-                        detections.append({
+                        # Enhanced detection info
+                        detection_info = {
                             "id": i,
                             "class_name": class_name,
+                            "class_id": int(class_id),
                             "confidence": float(conf),
+                            "confidence_percentage": round(float(conf) * 100, 2),
                             "bbox": {
                                 "x1": x1,
                                 "y1": y1,
                                 "x2": x2,
                                 "y2": y2,
                                 "width": x2 - x1,
-                                "height": y2 - y1
-                            }
-                        })
+                                "height": y2 - y1,
+                                "center_x": (x1 + x2) // 2,
+                                "center_y": (y1 + y2) // 2,
+                                "area": (x2 - x1) * (y2 - y1)
+                            },
+                            "reliability": self._get_reliability_level(float(conf))
+                        }
                         
-                        # Draw bounding box
+                        detections.append(detection_info)
+                        total_confidence += float(conf)
+                        
+                        # Draw bounding box with enhanced styling
                         color = self._get_color_for_class(class_id)
                         cv2.rectangle(annotated_image, (x1, y1), (x2, y2), color, self.bbox_thickness)
                         
-                        # Draw label
-                        label = f"{class_name}: {conf:.2f}"
-                        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
-                        cv2.rectangle(annotated_image, (x1, y1 - label_size[1] - 10), 
-                                    (x1 + label_size[0], y1), color, -1)
-                        cv2.putText(annotated_image, label, (x1, y1 - 5),
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                        # Enhanced label with confidence
+                        label = f"{class_name}: {conf:.2%}"
+                        label_bg_color = color
+                        
+                        # Calculate label dimensions
+                        font_scale = 0.6
+                        font_thickness = 2
+                        (label_width, label_height), baseline = cv2.getTextSize(
+                            label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
+                        )
+                        
+                        # Draw label background
+                        cv2.rectangle(annotated_image, 
+                                    (x1, y1 - label_height - baseline - 10), 
+                                    (x1 + label_width + 10, y1), 
+                                    label_bg_color, -1)
+                        
+                        # Draw label text
+                        cv2.putText(annotated_image, label, (x1 + 5, y1 - baseline - 5),
+                                  cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thickness)
+                        
+                        # Add confidence indicator (small rectangle)
+                        confidence_width = int((x2 - x1) * conf)
+                        cv2.rectangle(annotated_image, (x1, y2 + 2), (x1 + confidence_width, y2 + 6), color, -1)
             
             inference_time = time.time() - start_time
             
+            # Calculate statistics
+            avg_confidence = total_confidence / len(detections) if detections else 0
+            
             return {
                 "detections": detections,
+                "summary": {
+                    "total_objects": len(detections),
+                    "average_confidence": round(avg_confidence, 3),
+                    "highest_confidence": max([d["confidence"] for d in detections]) if detections else 0,
+                    "object_classes": list(set([d["class_name"] for d in detections])),
+                    "inference_time": inference_time,
+                    "model_used": self.model_manager.active_model_name
+                },
                 "inference_time": inference_time,
                 "annotated_image": annotated_image,
                 "original_shape": image.shape[:2],  # (height, width)
@@ -224,13 +269,96 @@ class LogoDetectionService:
             }
             
         except Exception as e:
-            logger.error(f"Error in logo detection: {e}")
+            logger.error(f"Error in object detection: {e}")
             return {
                 "detections": [],
+                "summary": {"error": str(e)},
                 "inference_time": 0.0,
                 "annotated_image": image,
                 "error": str(e)
             }
+    
+    def process_batch_images(self, image_paths: List[str]) -> Dict[str, Any]:
+        """
+        Process multiple images in batch
+        
+        Args:
+            image_paths: List of image file paths
+            
+        Returns:
+            Batch processing results
+        """
+        try:
+            start_time = time.time()
+            batch_results = []
+            total_detections = 0
+            
+            for i, image_path in enumerate(image_paths):
+                try:
+                    # Load image
+                    image = cv2.imread(image_path)
+                    if image is None:
+                        continue
+                    
+                    # Process image
+                    result = self.detect_logos_in_image(image)
+                    
+                    # Save annotated image
+                    output_path = f"/tmp/batch_results/annotated_{i}_{Path(image_path).name}"
+                    Path(output_path).parent.mkdir(exist_ok=True)
+                    cv2.imwrite(output_path, result["annotated_image"])
+                    
+                    batch_results.append({
+                        "original_path": image_path,
+                        "annotated_path": output_path,
+                        "detections": result["detections"],
+                        "summary": result.get("summary", {}),
+                        "index": i
+                    })
+                    
+                    total_detections += len(result["detections"])
+                    
+                except Exception as e:
+                    logger.error(f"Error processing image {image_path}: {e}")
+                    batch_results.append({
+                        "original_path": image_path,
+                        "error": str(e),
+                        "index": i
+                    })
+            
+            processing_time = time.time() - start_time
+            
+            return {
+                "success": True,
+                "batch_results": batch_results,
+                "summary": {
+                    "total_images": len(image_paths),
+                    "processed_images": len([r for r in batch_results if "error" not in r]),
+                    "failed_images": len([r for r in batch_results if "error" in r]),
+                    "total_detections": total_detections,
+                    "processing_time": processing_time,
+                    "avg_time_per_image": processing_time / len(image_paths) if image_paths else 0
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in batch processing: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "batch_results": []
+            }
+    
+    def _get_reliability_level(self, confidence: float) -> str:
+        """Get reliability level based on confidence score"""
+        if confidence >= 0.8:
+            return "High"
+        elif confidence >= 0.6:
+            return "Medium"
+        elif confidence >= 0.4:
+            return "Low"
+        else:
+            return "Very Low"
     
     def detect_logos_in_frame(self, frame: np.ndarray) -> Dict[str, Any]:
         """
