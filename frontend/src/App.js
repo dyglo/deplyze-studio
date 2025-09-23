@@ -447,7 +447,7 @@ function App() {
                         
                         <Button onClick={downloadResults} variant="outline" className="w-full">
                           <Download className="w-4 h-4 mr-2" />
-                          Download Results
+                          Download Annotated Image
                         </Button>
                       </div>
                     ) : (
