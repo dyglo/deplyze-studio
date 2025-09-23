@@ -35,7 +35,7 @@ db = client[os.environ['DB_NAME']]
 ml_service = LogoDetectionService()
 
 # Create the main app without a prefix
-app = FastAPI(title="Logo Detection API", version="1.0.0")
+app = FastAPI(title="VisionFlow API", version="1.0.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
