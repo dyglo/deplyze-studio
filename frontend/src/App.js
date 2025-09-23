@@ -281,17 +281,26 @@ function App() {
     return colors[index % colors.length];
   };
 
-  const downloadResults = () => {
-    if (!detectionResults) return;
+  const downloadResults = async () => {
+    if (!detectionResults?.id) return;
     
-    const dataStr = JSON.stringify(detectionResults, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'logo_detection_results.json';
-    link.click();
-    URL.revokeObjectURL(url);
+    try {
+      const response = await axios.get(`${API}/download/image/${detectionResults.id}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `visionflow_annotated_${detectionResults.id}.jpg`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Annotated image download started!');
+    } catch (error) {
+      console.error('Error downloading annotated image:', error);
+      toast.error('Failed to download annotated image');
+    }
   };
 
   return (
