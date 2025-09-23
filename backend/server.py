@@ -119,7 +119,7 @@ def pil_to_opencv(pil_image: Image.Image) -> np.ndarray:
 # API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Logo Detection API is running!", "version": "1.0.0"}
+    return {"message": "VisionFlow API is running!", "version": "1.0.0"}
 
 @api_router.get("/model/info", response_model=ModelInfo)
 async def get_model_info():
