@@ -445,14 +445,22 @@ function App() {
         {/* Main Content */}
         <div className="max-w-6xl mx-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="grid w-full grid-cols-2 bg-white/80 backdrop-blur-sm border border-slate-200">
+            <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm border border-slate-200">
               <TabsTrigger value="image" className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
-                Image Detection
+                Single Image
+              </TabsTrigger>
+              <TabsTrigger value="batch" className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Batch Processing
               </TabsTrigger>
               <TabsTrigger value="video" className="flex items-center gap-2">
                 <Video className="w-4 h-4" />
                 Video Processing
+              </TabsTrigger>
+              <TabsTrigger value="models" className="flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Model Management
               </TabsTrigger>
             </TabsList>
 
