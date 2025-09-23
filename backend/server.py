@@ -457,7 +457,7 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    logger.info("Starting Logo Detection API...")
+    logger.info("Starting VisionFlow API...")
     logger.info(f"Model device: {ml_service.device}")
     logger.info("API is ready!")
 
