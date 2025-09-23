@@ -6,8 +6,67 @@ from pathlib import Path
 import torch
 from typing import List, Tuple, Dict, Any
 import time
+import shutil
+import os
 
 logger = logging.getLogger(__name__)
+
+class ModelManager:
+    """Manage multiple YOLO models"""
+    
+    def __init__(self):
+        self.models = {}
+        self.active_model_name = "yolo11n"
+        self.model_dir = Path("/tmp/custom_models")
+        self.model_dir.mkdir(exist_ok=True)
+    
+    def load_model(self, model_path: str, model_name: str = None) -> str:
+        """Load a YOLO model and return model name"""
+        try:
+            if model_name is None:
+                model_name = Path(model_path).stem
+            
+            model = YOLO(model_path)
+            model.to("cpu")  # Force CPU
+            
+            # Warm up the model
+            dummy_image = np.zeros((640, 640, 3), dtype=np.uint8)
+            _ = model.predict(dummy_image, device="cpu", verbose=False)
+            
+            self.models[model_name] = {
+                "model": model,
+                "path": model_path,
+                "classes": list(model.names.values()),
+                "loaded_at": time.time()
+            }
+            
+            logger.info(f"Model {model_name} loaded successfully with {len(model.names)} classes")
+            return model_name
+            
+        except Exception as e:
+            logger.error(f"Error loading model {model_path}: {e}")
+            raise e
+    
+    def switch_model(self, model_name: str):
+        """Switch active model"""
+        if model_name in self.models:
+            self.active_model_name = model_name
+            logger.info(f"Switched to model: {model_name}")
+        else:
+            raise ValueError(f"Model {model_name} not found")
+    
+    def get_active_model(self):
+        """Get currently active model"""
+        return self.models.get(self.active_model_name)
+    
+    def list_models(self) -> Dict[str, Any]:
+        """List all loaded models"""
+        return {name: {
+            "classes": info["classes"],
+            "path": info["path"],
+            "loaded_at": info["loaded_at"],
+            "is_active": name == self.active_model_name
+        } for name, info in self.models.items()}
 
 class LogoDetectionService:
     """
