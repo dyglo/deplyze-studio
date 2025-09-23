@@ -51,8 +51,102 @@ function App() {
     try {
       const response = await axios.get(`${API}/model/info`);
       setModelInfo(response.data);
+      setSelectedModel(response.data.active_model);
     } catch (error) {
       console.error('Error loading model info:', error);
+    }
+  };
+
+  const switchModel = async (modelName) => {
+    try {
+      await axios.post(`${API}/model/switch?model_name=${modelName}`);
+      setSelectedModel(modelName);
+      await loadModelInfo(); // Refresh model info
+      toast.success(`Switched to model: ${modelName}`);
+    } catch (error) {
+      console.error('Error switching model:', error);
+      toast.error('Failed to switch model');
+    }
+  };
+
+  const handleCustomModelUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setModelUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('model_name', file.name.split('.')[0]);
+
+      const response = await axios.post(`${API}/model/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      setCustomModelFile(null);
+      await loadModelInfo(); // Refresh model info
+      toast.success(`Custom model uploaded: ${response.data.model_name}`);
+
+    } catch (error) {
+      console.error('Error uploading model:', error);
+      toast.error('Failed to upload custom model');
+    } finally {
+      setModelUploading(false);
+    }
+  };
+
+  const handleBatchUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    setBatchProcessing(true);
+    setBatchResults(null);
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      toast.info(`Processing ${files.length} images...`);
+
+      const response = await axios.post(`${API}/detect/batch/images`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 600000 // 10 minutes timeout
+      });
+
+      setBatchResults(response.data);
+      setBatchFiles(files);
+      toast.success(`Batch processing completed! ${response.data.total_detections} objects detected in ${response.data.processed_images} images`);
+
+    } catch (error) {
+      console.error('Error processing batch:', error);
+      toast.error('Failed to process batch images');
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  const downloadBatchResults = async () => {
+    if (!batchResults?.results_archive) return;
+
+    try {
+      const response = await axios.get(`${API}/download/batch/${batchResults.results_archive}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'visionflow_batch_results.zip';
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Batch results download started!');
+    } catch (error) {
+      console.error('Error downloading batch results:', error);
+      toast.error('Failed to download batch results');
     }
   };
 
