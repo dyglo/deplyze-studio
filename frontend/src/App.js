@@ -25,6 +25,12 @@ function App() {
   const [uploadedVideo, setUploadedVideo] = useState(null);
   const [videoProcessing, setVideoProcessing] = useState(false);
   const [videoResults, setVideoResults] = useState(null);
+  const [batchFiles, setBatchFiles] = useState([]);
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchResults, setBatchResults] = useState(null);
+  const [customModelFile, setCustomModelFile] = useState(null);
+  const [modelUploading, setModelUploading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("yolo11n");
   
   // Refs
   const fileInputRef = useRef(null);
