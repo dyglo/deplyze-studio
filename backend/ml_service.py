@@ -70,42 +70,79 @@ class ModelManager:
 
 class LogoDetectionService:
     """
-    CPU-optimized YOLO11n logo detection service
+    CPU-optimized YOLO detection service with multi-model support
     """
     
     def __init__(self, model_path: str = "yolo11n.pt"):
-        self.model_path = model_path
-        self.model = None
+        self.model_manager = ModelManager()
         self.device = "cpu"  # Force CPU for browser deployment
         self.confidence_threshold = 0.25
         self.iou_threshold = 0.45
         self.max_inference_size = 640  # Optimize for CPU performance
         self.bbox_thickness = 4  # Fixed bounding box thickness
         
-        # Load model at initialization
-        self._load_model()
+        # Load default model
+        self._load_default_model(model_path)
         
-    def _load_model(self):
-        """Load YOLO model with CPU optimization"""
+    def _load_default_model(self, model_path: str):
+        """Load default YOLO model"""
         try:
-            # Force CPU usage for browser deployment
             torch.set_num_threads(4)  # Optimize CPU threads
+            logger.info(f"Loading default YOLO model: {model_path}")
             
-            logger.info(f"Loading YOLO model: {self.model_path}")
-            self.model = YOLO(self.model_path)
-            
-            # Force model to CPU
-            self.model.to(self.device)
-            
-            # Warm up the model with a dummy prediction
-            dummy_image = np.zeros((640, 640, 3), dtype=np.uint8)
-            _ = self.model.predict(dummy_image, device=self.device, verbose=False)
-            
-            logger.info(f"Model loaded successfully on {self.device}")
+            self.model_manager.load_model(model_path, "yolo11n")
+            logger.info("Default model loaded successfully")
             
         except Exception as e:
-            logger.error(f"Error loading model: {e}")
+            logger.error(f"Error loading default model: {e}")
             raise e
+    
+    def upload_custom_model(self, model_file_path: str, model_name: str) -> Dict[str, Any]:
+        """Upload and load a custom YOLO model"""
+        try:
+            # Validate model file
+            if not Path(model_file_path).exists():
+                raise FileNotFoundError("Model file not found")
+            
+            # Copy to custom models directory
+            custom_model_path = self.model_manager.model_dir / f"{model_name}.pt"
+            shutil.copy2(model_file_path, custom_model_path)
+            
+            # Load the model
+            model_name = self.model_manager.load_model(str(custom_model_path), model_name)
+            
+            return {
+                "success": True,
+                "model_name": model_name,
+                "classes": self.model_manager.models[model_name]["classes"],
+                "message": f"Custom model {model_name} loaded successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error uploading custom model: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def switch_model(self, model_name: str) -> Dict[str, Any]:
+        """Switch to a different model"""
+        try:
+            self.model_manager.switch_model(model_name)
+            return {
+                "success": True,
+                "active_model": model_name,
+                "message": f"Switched to model: {model_name}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def get_current_model(self):
+        """Get current active model"""
+        return self.model_manager.get_active_model()
     
     def detect_logos_in_image(self, image: np.ndarray) -> Dict[str, Any]:
         """
