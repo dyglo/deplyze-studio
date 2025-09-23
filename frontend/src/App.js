@@ -536,29 +536,96 @@ function App() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">
-                            Found {detectionResults.detections.length} logos
+                            Found {detectionResults.detections.length} objects
                           </span>
                           <Badge variant="outline">
-                            {detectionResults.inference_time.toFixed(2)}s
+                            {detectionResults.inference_time?.toFixed(2)}s
                           </Badge>
                         </div>
                         
-                        {detectionResults.detections.map((detection, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div>
-                              <span className="font-medium">{detection.class_name}</span>
-                              <div className="text-sm text-slate-500">
-                                {detection.bbox.width}×{detection.bbox.height}px
+                        {/* Enhanced Detection Results */}
+                        <div className="space-y-3">
+                          {detectionResults.detections.map((detection, index) => (
+                            <div key={index} className="p-4 bg-slate-50 rounded-lg border">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant="secondary"
+                                    style={{ backgroundColor: getColorForClass(index) + '20', color: getColorForClass(index) }}
+                                  >
+                                    {detection.class_name}
+                                  </Badge>
+                                  <span className="text-xs text-slate-500">ID: {detection.class_id}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant={detection.reliability === 'High' ? 'default' : detection.reliability === 'Medium' ? 'secondary' : 'outline'}
+                                  >
+                                    {detection.confidence_percentage}%
+                                  </Badge>
+                                  <span className="text-xs text-slate-500">{detection.reliability}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-3 gap-4 text-xs text-slate-600">
+                                <div>
+                                  <span className="font-medium">Size:</span><br />
+                                  {detection.bbox.width}×{detection.bbox.height}px
+                                </div>
+                                <div>
+                                  <span className="font-medium">Position:</span><br />
+                                  ({detection.bbox.center_x}, {detection.bbox.center_y})
+                                </div>
+                                <div>
+                                  <span className="font-medium">Area:</span><br />
+                                  {detection.bbox.area.toLocaleString()}px²
+                                </div>
+                              </div>
+                              
+                              {/* Confidence Bar */}
+                              <div className="mt-2">
+                                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                                  <span>Confidence Level</span>
+                                  <span>{detection.confidence_percentage}%</span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-2">
+                                  <div 
+                                    className="h-2 rounded-full transition-all duration-300"
+                                    style={{ 
+                                      width: `${detection.confidence_percentage}%`,
+                                      backgroundColor: getColorForClass(index)
+                                    }}
+                                  />
+                                </div>
                               </div>
                             </div>
-                            <Badge 
-                              variant="secondary"
-                              style={{ backgroundColor: getColorForClass(index) + '20', color: getColorForClass(index) }}
-                            >
-                              {(detection.confidence * 100).toFixed(1)}%
-                            </Badge>
+                          ))}
+                        </div>
+
+                        {/* Summary Statistics */}
+                        {detectionResults.summary && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <div className="text-sm font-medium text-blue-900 mb-2">Detection Summary</div>
+                            <div className="grid grid-cols-2 gap-3 text-xs text-blue-700">
+                              <div>
+                                <span className="font-medium">Avg Confidence:</span><br />
+                                {(detectionResults.summary.average_confidence * 100).toFixed(1)}%
+                              </div>
+                              <div>
+                                <span className="font-medium">Highest:</span><br />
+                                {(detectionResults.summary.highest_confidence * 100).toFixed(1)}%
+                              </div>
+                              <div>
+                                <span className="font-medium">Classes Found:</span><br />
+                                {detectionResults.summary.object_classes?.length || 0}
+                              </div>
+                              <div>
+                                <span className="font-medium">Model:</span><br />
+                                {detectionResults.summary.model_used}
+                              </div>
+                            </div>
                           </div>
-                        ))}
+                        )}
                         
                         <Button onClick={downloadResults} variant="outline" className="w-full">
                           <Download className="w-4 h-4 mr-2" />
