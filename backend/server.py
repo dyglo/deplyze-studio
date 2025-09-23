@@ -295,9 +295,17 @@ async def detect_logos_in_image(file: UploadFile = File(...)):
             error=result.get("error")
         )
         
-        # Save to database (optional)
+        # Save annotated image to file system for download
         try:
+            annotated_dir = Path("/tmp/annotated_images")
+            annotated_dir.mkdir(exist_ok=True)
+            
+            annotated_path = annotated_dir / f"{detection_result.id}.jpg"
+            cv2.imwrite(str(annotated_path), result["annotated_image"])
+            
+            # Save to database with image path
             history_entry = DetectionHistory(
+                id=detection_result.id,
                 detection_result=detection_result,
                 image_name=file.filename or "unknown.jpg"
             )
