@@ -35,6 +35,8 @@ function App() {
   // Refs
   const fileInputRef = useRef(null);
   const videoFileInputRef = useRef(null);
+  const batchInputRef = useRef(null);
+  const modelInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
