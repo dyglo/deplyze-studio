@@ -328,10 +328,6 @@ function App() {
                 {modelInfo.confidence_threshold * 100}% Confidence
               </Badge>
               <Badge variant="secondary" className="px-3 py-1">
-                <Settings className="w-4 h-4 mr-1" />
-                {modelInfo.bbox_thickness || 2}px Thickness
-              </Badge>
-              <Badge variant="secondary" className="px-3 py-1">
                 <Clock className="w-4 h-4 mr-1" />
                 {modelInfo.max_inference_size}px Max Size
               </Badge>
