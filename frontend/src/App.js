@@ -858,6 +858,8 @@ function App() {
                   </Card>
                 </div>
               </div>
+            </TabsContent>
+
             {/* Batch Processing Tab */}
             <TabsContent value="batch">
               <BatchTab
