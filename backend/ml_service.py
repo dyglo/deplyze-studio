@@ -309,7 +309,7 @@ class LogoDetectionService:
                         continue
                     
                     # Process image
-                    result = self.detect_logos_in_image(image)
+                    result = self.detect_logos_in_image(image, selected_classes)
                     
                     # Save annotated image
                     output_path = f"/tmp/batch_results/annotated_{i}_{Path(image_path).name}"
