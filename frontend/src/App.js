@@ -626,11 +626,17 @@ function App() {
                             <div className="grid grid-cols-2 gap-3 text-xs text-blue-700">
                               <div>
                                 <span className="font-medium">Avg Confidence:</span><br />
-                                {(detectionResults.summary.average_confidence * 100).toFixed(1)}%
+                                {detectionResults.summary.average_confidence ? 
+                                  (detectionResults.summary.average_confidence * 100).toFixed(1) : 
+                                  'N/A'
+                                }%
                               </div>
                               <div>
                                 <span className="font-medium">Highest:</span><br />
-                                {(detectionResults.summary.highest_confidence * 100).toFixed(1)}%
+                                {detectionResults.summary.highest_confidence ? 
+                                  (detectionResults.summary.highest_confidence * 100).toFixed(1) : 
+                                  'N/A'
+                                }%
                               </div>
                               <div>
                                 <span className="font-medium">Classes Found:</span><br />
@@ -638,7 +644,7 @@ function App() {
                               </div>
                               <div>
                                 <span className="font-medium">Model:</span><br />
-                                {detectionResults.summary.model_used}
+                                {detectionResults.summary.model_used || 'yolo11n'}
                               </div>
                             </div>
                           </div>
