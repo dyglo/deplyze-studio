@@ -396,13 +396,14 @@ class LogoDetectionService:
         ]
         return colors[int(class_id) % len(colors)]
     
-    def process_video_file(self, video_path: str, output_path: str) -> Dict[str, Any]:
+    def process_video_file(self, video_path: str, output_path: str, selected_classes: List[str] = None) -> Dict[str, Any]:
         """
-        Process entire video file and return annotated video
+        Process entire video file and return annotated video with class filtering
         
         Args:
             video_path: Path to input video file
             output_path: Path for output annotated video
+            selected_classes: List of class names to filter detections (optional)
             
         Returns:
             Processing results with statistics
