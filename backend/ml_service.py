@@ -477,7 +477,8 @@ class LogoDetectionService:
                 "fps": fps,
                 "resolution": f"{width}x{height}",
                 "frame_detections": frame_detections[:10],  # First 10 frames for summary
-                "avg_detections_per_frame": total_detections / processed_frames if processed_frames > 0 else 0
+                "avg_detections_per_frame": total_detections / processed_frames if processed_frames > 0 else 0,
+                "filtered_classes": selected_classes or "All classes"
             }
             
         except Exception as e:
