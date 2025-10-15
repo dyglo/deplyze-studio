@@ -285,12 +285,13 @@ class LogoDetectionService:
                 "error": str(e)
             }
     
-    def process_batch_images(self, image_paths: List[str]) -> Dict[str, Any]:
+    def process_batch_images(self, image_paths: List[str], selected_classes: List[str] = None) -> Dict[str, Any]:
         """
         Process multiple images in batch
         
         Args:
             image_paths: List of image file paths
+            selected_classes: List of class names to filter detections (optional)
             
         Returns:
             Batch processing results
