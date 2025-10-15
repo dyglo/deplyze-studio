@@ -367,15 +367,15 @@ class LogoDetectionService:
         else:
             return "Very Low"
     
-    def detect_logos_in_frame(self, frame: np.ndarray) -> Dict[str, Any]:
+    def detect_logos_in_frame(self, frame: np.ndarray, selected_classes: List[str] = None) -> Dict[str, Any]:
         """
-        Optimized detection for video frames (lighter processing)
+        Optimized detection for video frames (lighter processing) with class filtering
         """
         # For video, we can use smaller input size for better FPS
         original_size = self.max_inference_size
         self.max_inference_size = 416  # Smaller for video processing
         
-        result = self.detect_logos_in_image(frame)
+        result = self.detect_logos_in_image(frame, selected_classes)
         
         # Restore original size
         self.max_inference_size = original_size
