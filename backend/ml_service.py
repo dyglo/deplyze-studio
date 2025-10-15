@@ -144,12 +144,13 @@ class LogoDetectionService:
         """Get current active model"""
         return self.model_manager.get_active_model()
     
-    def detect_logos_in_image(self, image: np.ndarray) -> Dict[str, Any]:
+    def detect_logos_in_image(self, image: np.ndarray, selected_classes: List[str] = None) -> Dict[str, Any]:
         """
         Detect objects in a single image with detailed classification and confidence
         
         Args:
             image: OpenCV image (BGR format)
+            selected_classes: List of class names to filter detections (optional)
             
         Returns:
             Detection results with detailed classification info
@@ -194,9 +195,13 @@ class LogoDetectionService:
                         # Get class name
                         class_name = model.names.get(int(class_id), f"Object_{int(class_id)}")
                         
+                        # Apply class filtering if specified
+                        if selected_classes and class_name not in selected_classes:
+                            continue  # Skip this detection if not in selected classes
+                        
                         # Enhanced detection info
                         detection_info = {
-                            "id": i,
+                            "id": len(detections),  # Use filtered index
                             "class_name": class_name,
                             "class_id": int(class_id),
                             "confidence": float(conf),
@@ -260,7 +265,9 @@ class LogoDetectionService:
                     "highest_confidence": max([d["confidence"] for d in detections]) if detections else 0,
                     "object_classes": list(set([d["class_name"] for d in detections])),
                     "inference_time": inference_time,
-                    "model_used": self.model_manager.active_model_name
+                    "model_used": self.model_manager.active_model_name,
+                    "filtered_classes": selected_classes or "All classes",
+                    "total_classes_available": len(current_model["classes"])
                 },
                 "inference_time": inference_time,
                 "annotated_image": annotated_image,
