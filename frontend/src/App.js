@@ -555,32 +555,42 @@ function App() {
                                     variant="secondary"
                                     style={{ backgroundColor: getColorForClass(index) + '20', color: getColorForClass(index) }}
                                   >
-                                    {detection.class_name}
+                                    {detection.class_name || 'Unknown'}
                                   </Badge>
-                                  <span className="text-xs text-slate-500">ID: {detection.class_id}</span>
+                                  {detection.class_id !== undefined && (
+                                    <span className="text-xs text-slate-500">ID: {detection.class_id}</span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Badge 
-                                    variant={detection.reliability === 'High' ? 'default' : detection.reliability === 'Medium' ? 'secondary' : 'outline'}
+                                    variant={
+                                      detection.reliability === 'High' ? 'default' : 
+                                      detection.reliability === 'Medium' ? 'secondary' : 'outline'
+                                    }
                                   >
-                                    {detection.confidence_percentage}%
+                                    {detection.confidence_percentage ? 
+                                      `${detection.confidence_percentage}%` : 
+                                      `${(detection.confidence * 100).toFixed(1)}%`
+                                    }
                                   </Badge>
-                                  <span className="text-xs text-slate-500">{detection.reliability}</span>
+                                  {detection.reliability && (
+                                    <span className="text-xs text-slate-500">{detection.reliability}</span>
+                                  )}
                                 </div>
                               </div>
                               
                               <div className="grid grid-cols-3 gap-4 text-xs text-slate-600">
                                 <div>
                                   <span className="font-medium">Size:</span><br />
-                                  {detection.bbox.width}×{detection.bbox.height}px
+                                  {detection.bbox?.width || 0}×{detection.bbox?.height || 0}px
                                 </div>
                                 <div>
                                   <span className="font-medium">Position:</span><br />
-                                  ({detection.bbox.center_x}, {detection.bbox.center_y})
+                                  ({detection.bbox?.center_x || Math.round((detection.bbox?.x1 + detection.bbox?.x2) / 2) || 0}, {detection.bbox?.center_y || Math.round((detection.bbox?.y1 + detection.bbox?.y2) / 2) || 0})
                                 </div>
                                 <div>
                                   <span className="font-medium">Area:</span><br />
-                                  {detection.bbox.area.toLocaleString()}px²
+                                  {detection.bbox?.area?.toLocaleString() || ((detection.bbox?.width || 0) * (detection.bbox?.height || 0)).toLocaleString()}px²
                                 </div>
                               </div>
                               
@@ -588,13 +598,18 @@ function App() {
                               <div className="mt-2">
                                 <div className="flex justify-between text-xs text-slate-500 mb-1">
                                   <span>Confidence Level</span>
-                                  <span>{detection.confidence_percentage}%</span>
+                                  <span>
+                                    {detection.confidence_percentage ? 
+                                      `${detection.confidence_percentage}%` : 
+                                      `${(detection.confidence * 100).toFixed(1)}%`
+                                    }
+                                  </span>
                                 </div>
                                 <div className="w-full bg-slate-200 rounded-full h-2">
                                   <div 
                                     className="h-2 rounded-full transition-all duration-300"
                                     style={{ 
-                                      width: `${detection.confidence_percentage}%`,
+                                      width: `${detection.confidence_percentage || (detection.confidence * 100)}%`,
                                       backgroundColor: getColorForClass(index)
                                     }}
                                   />
