@@ -433,15 +433,15 @@ class LogoDetectionService:
             total_detections = 0
             frame_detections = []
             
-            logger.info(f"Processing video: {total_frames} frames at {fps} FPS")
+            logger.info(f"Processing video: {total_frames} frames at {fps} FPS with class filter: {selected_classes or 'All classes'}")
             
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
                 
-                # Run detection on frame
-                result = self.detect_logos_in_frame(frame)
+                # Run detection on frame with class filtering
+                result = self.detect_logos_in_frame(frame, selected_classes)
                 detections = result["detections"]
                 annotated_frame = result["annotated_image"]
                 
