@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response, FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -116,6 +117,7 @@ class BatchProcessingResult(BaseModel):
     failed_images: int
     total_detections: int
     processing_time: float
+    batch_results: List[Dict[str, Any]] = []
     results_archive: Optional[str] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
@@ -130,6 +132,7 @@ class VideoProcessingResult(BaseModel):
     resolution: str
     avg_detections_per_frame: float
     output_filename: str
+    detected_classes: List[Dict[str, Any]] = []
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
 
@@ -302,6 +305,11 @@ async def process_batch_images(background_tasks: BackgroundTasks, files: List[Up
             failed_images=result["summary"]["failed_images"],
             total_detections=result["summary"]["total_detections"],
             processing_time=result["summary"]["processing_time"],
+            batch_results=[{
+                **res, 
+                "annotated_path": f"/batch_results/{Path(res['annotated_path']).name}" if "annotated_path" in res else None,
+                "original_path": f"/batch_results/{Path(res['original_path']).name}" if "original_path" in res else None
+            } for res in result["batch_results"]],
             results_archive=Path(archive_path).name
         )
         
@@ -390,7 +398,8 @@ async def process_video_file(background_tasks: BackgroundTasks, file: UploadFile
             fps=result["fps"],
             resolution=result["resolution"],
             avg_detections_per_frame=result["avg_detections_per_frame"],
-            output_filename=final_output_name
+            output_filename=final_output_name,
+            detected_classes=result.get("detected_classes", [])
         )
         
         # Save to database
@@ -612,6 +621,16 @@ async def create_status_check(input: StatusCheckCreate):
 async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
+
+# Mount static files for batch results
+batch_res_path = Path("/tmp/batch_results")
+batch_res_path.mkdir(exist_ok=True, parents=True)
+app.mount("/batch_results", StaticFiles(directory=str(batch_res_path)), name="batch_results")
+
+# Mount static files for processed videos
+processed_videos_path = Path("/tmp/processed_videos")
+processed_videos_path.mkdir(exist_ok=True, parents=True)
+app.mount("/processed_videos", StaticFiles(directory=str(processed_videos_path)), name="processed_videos")
 
 # Include the router in the main app
 app.include_router(api_router)

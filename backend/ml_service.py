@@ -79,7 +79,7 @@ class LogoDetectionService:
         self.confidence_threshold = 0.25
         self.iou_threshold = 0.45
         self.max_inference_size = 640  # Optimize for CPU performance
-        self.bbox_thickness = 4  # Fixed bounding box thickness
+        self.bbox_thickness = 6  # Thicker bounding boxes for clarity
         
         # Load default model
         self._load_default_model(model_path)
@@ -384,16 +384,17 @@ class LogoDetectionService:
         return result
     
     def _get_color_for_class(self, class_id: int) -> Tuple[int, int, int]:
-        """Generate consistent color for each class"""
+        """Generate consistent color for each class based on brand palette"""
+        # BGR Format: (B, G, R)
         colors = [
-            (255, 0, 0),    # Red
-            (0, 255, 0),    # Green  
-            (0, 0, 255),    # Blue
-            (255, 255, 0),  # Yellow
-            (255, 0, 255),  # Magenta
-            (0, 255, 255),  # Cyan
-            (128, 0, 128),  # Purple
-            (255, 165, 0),  # Orange
+            (60, 93, 198),   # Crail (#C65D3C) - Brand Primary
+            (158, 166, 175), # Cloudy (#AFA69E) - Brand Neutral
+            (40, 40, 40),    # Dark Grey
+            (60, 120, 198),  # Crail-ish lighter
+            (93, 198, 60),   # Green-ish
+            (198, 60, 93),   # Pink-ish
+            (198, 160, 60),  # Yellow-ish
+            (120, 60, 198),  # Purple-ish
         ]
         return colors[int(class_id) % len(colors)]
     
@@ -432,6 +433,7 @@ class LogoDetectionService:
             
             processed_frames = 0
             total_detections = 0
+            unique_detections = {} # class_name: {count, total_conf}
             frame_detections = []
             
             logger.info(f"Processing video: {total_frames} frames at {fps} FPS with class filter: {selected_classes or 'All classes'}")
@@ -452,6 +454,15 @@ class LogoDetectionService:
                 # Collect statistics
                 processed_frames += 1
                 total_detections += len(detections)
+                
+                # Accrue unique detections
+                for det in detections:
+                    cls_name = det["class_name"]
+                    if cls_name not in unique_detections:
+                        unique_detections[cls_name] = {"count": 0, "total_conf": 0}
+                    unique_detections[cls_name]["count"] += 1
+                    unique_detections[cls_name]["total_conf"] += det["confidence"]
+
                 frame_detections.append({
                     "frame": processed_frames,
                     "detections": len(detections),
@@ -477,6 +488,10 @@ class LogoDetectionService:
                 "processing_time": processing_time,
                 "fps": fps,
                 "resolution": f"{width}x{height}",
+                "detected_classes": [
+                    {"class_name": cls, "count": data["count"], "avg_confidence": data["total_conf"] / data["count"]}
+                    for cls, data in unique_detections.items()
+                ],
                 "frame_detections": frame_detections[:10],  # First 10 frames for summary
                 "avg_detections_per_frame": total_detections / processed_frames if processed_frames > 0 else 0,
                 "filtered_classes": selected_classes or "All classes"
