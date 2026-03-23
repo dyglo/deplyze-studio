@@ -78,6 +78,26 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
+
+def get_allowed_origins() -> List[str]:
+    """Build a local-development-friendly CORS allowlist."""
+    configured_origins = [
+        origin.strip()
+        for origin in os.environ.get("CORS_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+    default_local_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
+
+    if "*" in configured_origins:
+        return default_local_origins
+
+    return list(dict.fromkeys(default_local_origins + configured_origins))
+
 class ModelInfo(BaseModel):
     device: str
     confidence_threshold: float
@@ -600,7 +620,8 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=get_allowed_origins(),
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_methods=["*"],
     allow_headers=["*"],
 )

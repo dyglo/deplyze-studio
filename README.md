@@ -170,9 +170,9 @@ openvisionflow/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11 or 3.12
 - Node.js 18+
-- Yarn 1.x or npm
+- [uv](https://docs.astral.sh/uv/)
 - MongoDB instance
 
 ### Environment Variables
@@ -184,7 +184,7 @@ Create `backend/.env`:
 ```env
 MONGO_URL=mongodb://localhost:27017
 DB_NAME=visionflow
-CORS_ORIGINS=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 #### Frontend
@@ -199,7 +199,7 @@ REACT_APP_BACKEND_URL=http://localhost:8000
 
 ```bash
 cd backend
-python -m venv .venv
+uv venv --python 3.11
 ```
 
 Activate the virtual environment:
@@ -210,16 +210,21 @@ Activate the virtual environment:
 Install dependencies and start the API:
 
 ```bash
-pip install -r requirements.txt
-uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+uv pip install -r requirements.txt
+uv run uvicorn server:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+Why `uv`:
+
+- It avoids the Python 3.14 package build issues that can appear with this dependency set.
+- The backend has been verified locally with `uv` and Python 3.11.
 
 ### Run the Frontend
 
 ```bash
 cd frontend
-yarn install
-yarn start
+corepack yarn install
+corepack yarn start
 ```
 
 If you prefer npm:
@@ -229,7 +234,14 @@ npm install
 npm start
 ```
 
-The frontend will be available at `http://localhost:3000`.
+If you want to force CRA to use port `3000` explicitly:
+
+```powershell
+$env:PORT=3000
+corepack yarn start
+```
+
+The frontend is expected to run at `http://localhost:3000`.
 
 ### Typical Development Flow
 
@@ -246,6 +258,8 @@ The frontend will be available at `http://localhost:3000`.
 - Generated annotated images, processed videos, and batch archives are stored temporarily under `/tmp`.
 - Detection history and status records are saved in MongoDB.
 - The frontend depends on `REACT_APP_BACKEND_URL` for both HTTP and WebSocket connectivity.
+- Local development CORS is configured to accept `localhost` and `127.0.0.1` origins, including ports `3000` and `3001`.
+- The frontend dev setup includes an explicit HMR plugin fix in `frontend/craco.config.js` so the app starts cleanly in development.
 
 ## Testing
 
