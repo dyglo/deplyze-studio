@@ -35,7 +35,7 @@ db = client[os.environ['DB_NAME']]
 ml_service = LogoDetectionService()
 
 # Create the main app without a prefix
-app = FastAPI(title="VisionFlow API", version="1.0.0")
+app = FastAPI(title="Deplyze Studio API", version="1.0.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -152,7 +152,7 @@ def pil_to_opencv(pil_image: Image.Image) -> np.ndarray:
 # API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "VisionFlow API is running!", "version": "1.0.0"}
+    return {"message": "Deplyze Studio API is running!", "version": "1.0.0"}
 
 @api_router.get("/model/info", response_model=ModelInfo)
 async def get_model_info():
@@ -188,7 +188,7 @@ async def download_annotated_image(image_id: str):
         
         return FileResponse(
             path=str(image_path),
-            filename=f"visionflow_annotated_{image_id}.jpg",
+            filename=f"deplyze_studio_annotated_{image_id}.jpg",
             media_type="image/jpeg"
         )
         
@@ -324,7 +324,7 @@ async def download_batch_results(archive_name: str):
         
         return FileResponse(
             path=str(file_path),
-            filename=f"visionflow_batch_results.zip",
+            filename=f"deplyze_studio_batch_results.zip",
             media_type="application/zip"
         )
         
@@ -636,7 +636,7 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    logger.info("Starting VisionFlow API...")
+    logger.info("Starting Deplyze Studio API...")
     logger.info(f"Model device: {ml_service.device}")
     logger.info("API is ready!")
 

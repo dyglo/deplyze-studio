@@ -141,7 +141,7 @@ function App() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'visionflow_batch_results.zip';
+      link.download = 'deplyze_studio_batch_results.zip';
       link.click();
       window.URL.revokeObjectURL(url);
       
@@ -397,7 +397,7 @@ function App() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `visionflow_annotated_${detectionResults.id}.jpg`;
+      link.download = `deplyze_studio_annotated_${detectionResults.id}.jpg`;
       link.click();
       window.URL.revokeObjectURL(url);
       
@@ -416,7 +416,7 @@ function App() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-6">
             <Eye className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">VisionFlow</h1>
+          <h1 className="text-4xl font-bold text-slate-900 mb-4">Deplyze Studio</h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
             Advanced AI-powered object detection with custom models, batch processing, and detailed analytics
           </p>

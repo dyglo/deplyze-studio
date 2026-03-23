@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Extended Backend API Testing for VisionFlow App
+Extended Backend API Testing for Deplyze Studio
 Tests batch processing, model management, and video processing endpoints
 """
 
@@ -20,7 +20,7 @@ import numpy as np
 BACKEND_URL = "https://logodetector.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
-class VisionFlowExtendedTester:
+class DeplyzeStudioExtendedTester:
     def __init__(self):
         self.tests_run = 0
         self.tests_passed = 0
@@ -270,7 +270,7 @@ class VisionFlowExtendedTester:
 
     def run_extended_tests(self):
         """Run all extended backend API tests"""
-        print("🚀 Starting VisionFlow Extended API Tests")
+        print("🚀 Starting Deplyze Studio Extended API Tests")
         print(f"Backend URL: {BACKEND_URL}")
         print("=" * 60)
         
@@ -311,7 +311,7 @@ class VisionFlowExtendedTester:
 
 def main():
     """Main test execution"""
-    tester = VisionFlowExtendedTester()
+    tester = DeplyzeStudioExtendedTester()
     
     try:
         success = tester.run_extended_tests()
