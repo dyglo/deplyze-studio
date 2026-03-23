@@ -146,7 +146,7 @@ function App() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'visionflow_batch_results.zip';
+      link.download = 'deplyze_studio_batch_results.zip';
       link.click();
       window.URL.revokeObjectURL(url);
       
@@ -415,7 +415,7 @@ function App() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `visionflow_annotated_${detectionResults.id}.jpg`;
+      link.download = `deplyze_studio_annotated_${detectionResults.id}.jpg`;
       link.click();
       window.URL.revokeObjectURL(url);
       

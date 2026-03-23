@@ -1,4 +1,4 @@
-# VisionFlow
+# Deplyze Studio
 
 <p align="center">
   Open-source computer vision workspace for object and logo detection across images, video files, live camera streams, and batch uploads.
@@ -16,7 +16,7 @@
 
 ## Overview
 
-VisionFlow is a full-stack computer vision application built around a FastAPI backend and a React frontend. It provides an interactive interface for running object detection on:
+Deplyze Studio is a full-stack computer vision application built around a FastAPI backend and a React frontend. It provides an interactive interface for running object detection on:
 
 - Single images
 - Multiple images in batch
@@ -124,7 +124,7 @@ The backend lives in `backend/` and is built with FastAPI. It:
 ## Project Structure
 
 ```text
-openvisionflow/
+deplyze-studio/
 ├── backend/
 │   ├── ml_service.py
 │   ├── requirements.txt
@@ -183,7 +183,7 @@ Create `backend/.env`:
 
 ```env
 MONGO_URL=mongodb://localhost:27017
-DB_NAME=visionflow
+DB_NAME=deplyze_studio
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
