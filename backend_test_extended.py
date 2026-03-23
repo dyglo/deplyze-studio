@@ -16,8 +16,8 @@ from PIL import Image, ImageDraw
 import cv2
 import numpy as np
 
-# Use the public endpoint from frontend/.env
-BACKEND_URL = "https://logodetector.preview.emergentagent.com"
+# Prefer an explicit environment override, otherwise use local development.
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 API_BASE = f"{BACKEND_URL}/api"
 
 class VisionFlowExtendedTester:
