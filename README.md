@@ -42,7 +42,7 @@ The backend performs inference with Ultralytics YOLO on CPU, annotates detection
 flowchart LR
     A["React Frontend"] -->|HTTP /api| B["FastAPI Server"]
     A -->|WebSocket /api/detect/video| B
-    B --> C["LogoDetectionService"]
+    B --> C["DetectionService"]
     C --> D["Ultralytics YOLO"]
     C --> E["OpenCV / PIL / NumPy"]
     B --> F["MongoDB"]
@@ -120,51 +120,6 @@ The backend lives in `backend/` and is built with FastAPI. It:
 - Flake8
 - Isort
 - Custom API test scripts: `backend_test.py`, `backend_test_extended.py`
-
-## Project Structure
-
-```text
-deplyze-studio/
-├── backend/
-│   ├── ml_service.py
-│   ├── requirements.txt
-│   ├── server.py
-│   └── yolo11n.pt
-├── frontend/
-│   ├── package.json
-│   ├── craco.config.js
-│   ├── tailwind.config.js
-│   ├── public/
-│   └── src/
-│       ├── App.js
-│       ├── components/
-│       ├── hooks/
-│       └── lib/
-├── tests/
-├── backend_test.py
-├── backend_test_extended.py
-└── README.md
-```
-
-## API Surface
-
-### Core endpoints
-
-- `GET /api/` - health/root response
-- `GET /api/model/info` - current model metadata
-- `POST /api/model/confidence` - update confidence threshold
-- `POST /api/model/upload` - upload custom YOLO model
-- `POST /api/model/switch` - switch active model
-- `POST /api/detect/image` - detect objects in an uploaded image
-- `POST /api/detect/image/annotated` - return detections plus annotated image as base64
-- `POST /api/detect/batch/images` - process multiple uploaded images
-- `POST /api/detect/video` - process an uploaded video file
-- `GET /api/history` - recent image detection history
-- `GET /api/video/history` - recent video processing history
-- `GET /api/download/image/{image_id}` - annotated image download
-- `GET /api/download/batch/{archive_name}` - ZIP archive download
-- `GET /api/download/video/{filename}` - processed video download
-- `WS /api/detect/video` - real-time webcam detection stream
 
 ## Getting Started
 
