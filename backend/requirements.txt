@@ -20,6 +20,7 @@ flake8==7.3.0
 fonttools==4.60.0
 fsspec==2025.9.0
 h11==0.16.0
+httpx==0.28.1
 idna==3.10
 imageio==2.37.0
 imageio-ffmpeg==0.6.0
@@ -73,6 +74,8 @@ pytz==2025.2
 PyYAML==6.0.2
 requests==2.32.5
 requests-oauthlib==2.0.0
+roboflow==1.2.16
+lapx==0.5.12
 rich==14.1.0
 rsa==4.9.1
 s3transfer==0.14.0
