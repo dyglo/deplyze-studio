@@ -8,6 +8,7 @@ from typing import List, Tuple, Dict, Any
 import time
 import shutil
 import os
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,11 @@ class ModelManager:
     def get_active_model(self):
         """Get currently active model"""
         return self.models.get(self.active_model_name)
+
+    def get_model(self, model_name: str = None):
+        if model_name and model_name in self.models:
+            return self.models[model_name]
+        return self.get_active_model()
     
     def list_models(self) -> Dict[str, Any]:
         """List all loaded models"""
@@ -143,6 +149,9 @@ class LogoDetectionService:
     def get_current_model(self):
         """Get current active model"""
         return self.model_manager.get_active_model()
+
+    def get_named_model(self, model_name: str = None):
+        return self.model_manager.get_model(model_name)
     
     def detect_logos_in_image(self, image: np.ndarray, selected_classes: List[str] = None) -> Dict[str, Any]:
         """
@@ -397,6 +406,19 @@ class LogoDetectionService:
             (120, 60, 198),  # Purple-ish
         ]
         return colors[int(class_id) % len(colors)]
+
+    def _get_color_for_track(self, track_id: int) -> Tuple[int, int, int]:
+        colors = [
+            (60, 93, 198),
+            (158, 166, 175),
+            (40, 40, 40),
+            (60, 120, 198),
+            (93, 198, 60),
+            (198, 60, 93),
+            (198, 160, 60),
+            (120, 60, 198),
+        ]
+        return colors[int(track_id) % len(colors)]
     
     def process_video_file(self, video_path: str, output_path: str, selected_classes: List[str] = None) -> Dict[str, Any]:
         """
@@ -496,7 +518,7 @@ class LogoDetectionService:
                 "avg_detections_per_frame": total_detections / processed_frames if processed_frames > 0 else 0,
                 "filtered_classes": selected_classes or "All classes"
             }
-            
+
         except Exception as e:
             logger.error(f"Error processing video: {e}")
             return {
@@ -504,6 +526,155 @@ class LogoDetectionService:
                 "error": str(e),
                 "processed_frames": processed_frames,
                 "processing_time": time.time() - start_time if 'start_time' in locals() else 0
+            }
+
+    def track_video_file(self, video_path: str, output_path: str, model_name: str = None, tracker: str = "botsort") -> Dict[str, Any]:
+        try:
+            start_time = time.time()
+            current_model = self.get_named_model(model_name)
+            if not current_model:
+                raise RuntimeError("No model loaded")
+
+            model = current_model["model"]
+            tracker_config = "botsort.yaml" if tracker == "botsort" else "bytetrack.yaml"
+
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                raise RuntimeError(f"Could not open video file: {video_path}")
+
+            fps = int(cap.get(cv2.CAP_PROP_FPS)) or 24
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+            processed_frames = 0
+            total_detections = 0
+            frame_results = []
+            unique_track_ids = set()
+
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                results = model.track(
+                    source=frame,
+                    persist=True,
+                    device=self.device,
+                    conf=self.confidence_threshold,
+                    iou=self.iou_threshold,
+                    imgsz=416,
+                    verbose=False,
+                    tracker=tracker_config,
+                )
+                result = results[0] if results else None
+                annotated_frame = frame.copy()
+                detections = []
+
+                if result is not None and result.boxes is not None and len(result.boxes) > 0:
+                    boxes = result.boxes.xyxy.cpu().numpy()
+                    confidences = result.boxes.conf.cpu().numpy()
+                    class_ids = result.boxes.cls.cpu().numpy()
+                    track_ids = result.boxes.id.int().cpu().tolist() if result.boxes.id is not None else [None] * len(boxes)
+
+                    for box, conf, class_id, track_id in zip(boxes, confidences, class_ids, track_ids):
+                        x1, y1, x2, y2 = map(int, box)
+                        class_name = model.names.get(int(class_id), f"Object_{int(class_id)}")
+                        color = self._get_color_for_track(track_id if track_id is not None else int(class_id))
+                        label = f"#{track_id} {class_name} {conf:.2%}" if track_id is not None else f"{class_name} {conf:.2%}"
+
+                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, self.bbox_thickness)
+                        (label_width, label_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+                        cv2.rectangle(annotated_frame, (x1, max(0, y1 - label_height - baseline - 8)), (x1 + label_width + 8, y1), color, -1)
+                        cv2.putText(annotated_frame, label, (x1 + 4, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+
+                        detection = {
+                            "class_name": class_name,
+                            "class_id": int(class_id),
+                            "confidence": float(conf),
+                            "track_id": int(track_id) if track_id is not None else None,
+                            "bbox": {
+                                "x1": x1,
+                                "y1": y1,
+                                "x2": x2,
+                                "y2": y2,
+                                "width": x2 - x1,
+                                "height": y2 - y1,
+                            },
+                        }
+                        detections.append(detection)
+                        if track_id is not None:
+                            unique_track_ids.add(int(track_id))
+
+                out.write(annotated_frame)
+                processed_frames += 1
+                total_detections += len(detections)
+                frame_results.append({
+                    "frame_index": processed_frames,
+                    "detections": detections,
+                })
+
+                if processed_frames % 30 == 0:
+                    progress = (processed_frames / max(total_frames, 1)) * 100
+                    logger.info(f"Tracking progress: {progress:.1f}% ({processed_frames}/{total_frames})")
+
+            cap.release()
+            out.release()
+
+            processing_time = time.time() - start_time
+            return {
+                "success": True,
+                "output_path": output_path,
+                "processed_frames": processed_frames,
+                "total_detections": total_detections,
+                "processing_time": processing_time,
+                "fps": fps,
+                "resolution": f"{width}x{height}",
+                "avg_detections_per_frame": total_detections / processed_frames if processed_frames else 0,
+                "tracker": tracker,
+                "model_used": model_name or self.model_manager.active_model_name,
+                "total_tracks": len(unique_track_ids),
+                "frame_results": frame_results,
+            }
+        except Exception as e:
+            logger.error(f"Error tracking video: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "processed_frames": 0,
+                "processing_time": time.time() - start_time if 'start_time' in locals() else 0,
+            }
+
+    def convert_pt_to_onnx(self, model_file_path: str, task: str = "detect") -> Dict[str, Any]:
+        try:
+            if not Path(model_file_path).exists():
+                raise FileNotFoundError("Model file not found")
+
+            export_root = Path("/tmp/converted_models")
+            export_root.mkdir(exist_ok=True, parents=True)
+            model = YOLO(model_file_path)
+            exported_path = model.export(format="onnx", imgsz=640 if task != "classify" else 224, device="cpu", simplify=False)
+            exported_path = Path(exported_path)
+            target_path = export_root / exported_path.name
+            if exported_path.resolve() != target_path.resolve():
+              shutil.copy2(exported_path, target_path)
+            else:
+              target_path = exported_path
+
+            encoded = base64.b64encode(target_path.read_bytes()).decode("utf-8")
+            return {
+                "success": True,
+                "onnx_model": encoded,
+                "filename": target_path.name,
+            }
+        except Exception as e:
+            logger.error(f"Error converting model to ONNX: {e}")
+            return {
+                "success": False,
+                "error": str(e),
             }
 
     def update_confidence_threshold(self, threshold: float):

@@ -23,6 +23,7 @@ import shutil
 
 # Import our ML service
 from ml_service import LogoDetectionService
+from roboflow_service import RoboflowDatasetService
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -34,6 +35,7 @@ db = client[os.environ['DB_NAME']]
 
 # Initialize ML service at startup
 ml_service = LogoDetectionService()
+roboflow_service = RoboflowDatasetService(os.environ.get("ROBOFLOW_API_KEY"))
 
 # Create the main app without a prefix
 app = FastAPI(title="Deplyze Studio API", version="1.0.0")
@@ -136,6 +138,35 @@ class VideoProcessingResult(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
 
+class RoboflowInferRequest(BaseModel):
+    dataset_id: str
+    workspace: str
+    project: str
+    version: Optional[int] = None
+    task: str
+    model: str
+    api_key: Optional[str] = None
+
+class TrackRequest(BaseModel):
+    video: str
+    model: Optional[str] = None
+    tracker: str = "botsort"
+
+class TrackingProcessingResult(BaseModel):
+    success: bool
+    processed_frames: int
+    total_detections: int
+    processing_time: float
+    fps: int
+    resolution: str
+    avg_detections_per_frame: float
+    output_filename: str
+    tracker: str
+    model_used: str
+    total_tracks: int
+    frame_results: List[Dict[str, Any]] = []
+    error: Optional[str] = None
+
 # Helper functions
 def numpy_to_base64(image_array: np.ndarray) -> str:
     """Convert numpy array to base64 string"""
@@ -162,6 +193,58 @@ async def get_model_info():
     """Get current model information"""
     model_info = ml_service.get_model_info()
     return ModelInfo(**model_info)
+
+@api_router.get("/roboflow/search")
+async def search_roboflow_datasets(q: str, api_key: Optional[str] = None):
+    try:
+        resolved_key = roboflow_service.resolve_api_key(api_key)
+        return {"results": roboflow_service.search_public_datasets(q, resolved_key)}
+    except Exception as e:
+        logging.error(f"Error searching Roboflow datasets: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/roboflow/dataset/{workspace}/{project}")
+async def get_roboflow_dataset(workspace: str, project: str, api_key: Optional[str] = None):
+    try:
+        resolved_key = roboflow_service.resolve_api_key(api_key)
+        return roboflow_service.dataset_detail(workspace, project, resolved_key)
+    except Exception as e:
+        logging.error(f"Error getting Roboflow dataset: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/roboflow/infer")
+async def infer_roboflow_dataset(payload: RoboflowInferRequest):
+    try:
+        resolved_key = roboflow_service.resolve_api_key(payload.api_key)
+        samples = roboflow_service.inferable_samples(payload.workspace, payload.project, payload.version, resolved_key)
+        if payload.task != "detect":
+            return {
+                "task": payload.task,
+                "model": payload.model,
+                "sample_images": samples,
+            }
+
+        results = []
+        for sample in samples:
+          cv_image = base64_to_numpy(sample["image_base64"])
+          detect_result = ml_service.detect_logos_in_image(cv_image)
+          results.append({
+              "sample_id": sample["sample_id"],
+              "file_name": sample["file_name"],
+              "image_url": sample["image_url"],
+              "inference_time": detect_result["inference_time"],
+              "detections": detect_result["detections"],
+          })
+
+        return {
+            "task": payload.task,
+            "model": payload.model,
+            "sample_images": samples,
+            "results": results,
+        }
+    except Exception as e:
+        logging.error(f"Error running Roboflow inference: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/model/confidence")
 async def update_confidence_threshold(threshold: float):
@@ -234,6 +317,30 @@ async def upload_custom_model(background_tasks: BackgroundTasks, file: UploadFil
             
     except Exception as e:
         logging.error(f"Error uploading custom model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/model/convert")
+async def convert_custom_model(background_tasks: BackgroundTasks, file: UploadFile = File(...), task: str = "detect"):
+    try:
+        if not file.filename.endswith(".pt"):
+            raise HTTPException(status_code=400, detail="Only .pt files can be converted")
+
+        temp_path = f"/tmp/{uuid.uuid4().hex}_{file.filename}"
+        with open(temp_path, "wb") as buffer:
+            contents = await file.read()
+            buffer.write(contents)
+
+        result = ml_service.convert_pt_to_onnx(temp_path, task=task)
+        background_tasks.add_task(cleanup_file, temp_path)
+
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+        return {"onnx_model": result["onnx_model"], "filename": result["filename"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error converting custom model: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/model/switch")
@@ -412,6 +519,50 @@ async def process_video_file(background_tasks: BackgroundTasks, file: UploadFile
         
     except Exception as e:
         logging.error(f"Error in video processing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/track", response_model=TrackingProcessingResult)
+async def track_video(payload: TrackRequest, background_tasks: BackgroundTasks):
+    try:
+        temp_dir = Path(tempfile.mkdtemp())
+        input_path = temp_dir / f"input_{uuid.uuid4().hex[:8]}.mp4"
+        output_path = temp_dir / f"tracked_{uuid.uuid4().hex[:8]}.mp4"
+        input_path.write_bytes(base64.b64decode(payload.video))
+
+        result = ml_service.track_video_file(
+            str(input_path),
+            str(output_path),
+            model_name=payload.model,
+            tracker=payload.tracker,
+        )
+        if not result.get("success", False):
+            raise HTTPException(status_code=500, detail=result.get("error", "Tracking failed"))
+
+        output_dir = Path("/tmp/processed_videos")
+        output_dir.mkdir(exist_ok=True)
+        final_output_name = f"tracked_{uuid.uuid4().hex[:8]}.mp4"
+        final_output_path = output_dir / final_output_name
+        shutil.move(str(output_path), str(final_output_path))
+        background_tasks.add_task(cleanup_temp_dir, temp_dir)
+
+        return TrackingProcessingResult(
+            success=True,
+            processed_frames=result["processed_frames"],
+            total_detections=result["total_detections"],
+            processing_time=result["processing_time"],
+            fps=result["fps"],
+            resolution=result["resolution"],
+            avg_detections_per_frame=result["avg_detections_per_frame"],
+            output_filename=final_output_name,
+            tracker=result["tracker"],
+            model_used=result["model_used"],
+            total_tracks=result["total_tracks"],
+            frame_results=result["frame_results"],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error tracking video: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/download/video/{filename}")
@@ -621,6 +772,32 @@ async def create_status_check(input: StatusCheckCreate):
 async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
+
+from fastapi.responses import Response, FileResponse, StreamingResponse
+
+@api_router.get("/proxy/model")
+async def proxy_model(url: str):
+    """
+    Proxy model downloads to bypass CORS restrictions for GitHub etc.
+    """
+    import requests
+    try:
+        def generate():
+            with requests.get(url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=8192):
+                    yield chunk
+        
+        return StreamingResponse(
+            generate(),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f"attachment; filename={url.split('/')[-1]}",
+            }
+        )
+    except Exception as e:
+        logging.error(f"Error proxying model {url}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Mount static files for batch results
 batch_res_path = Path("/tmp/batch_results")

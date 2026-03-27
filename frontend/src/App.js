@@ -6,12 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Badge } from './components/ui/badge';
 import { Progress } from './components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
-import { Upload, Camera, Play, Square, Download, Zap, Target, Clock, Video, Eye, Layers, Package, BarChart3, PanelLeftClose, PanelLeftOpen, Search, Activity } from 'lucide-react';
+import { Upload, Camera, Play, Square, Download, Zap, Target, Clock, Video, Eye, Layers, Package, BarChart3, PanelLeftClose, PanelLeftOpen, Search, Activity, Database } from 'lucide-react';
 import axios from 'axios';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog';
 import { toast } from 'sonner';
 import BatchTab from './components/BatchTab';
+import DatasetsTab from './components/DatasetsTab';
 import ModelTab from './components/ModelTab';
+import ImageStudioTab from './components/ImageStudioTab';
+import { getInitialTaskModelSelections } from './inference/studio';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -38,6 +41,11 @@ function App() {
   const [customModelFile, setCustomModelFile] = useState(null);
   const [modelUploading, setModelUploading] = useState(false);
   const [selectedModel, setSelectedModel] = useState("yolo11n");
+  const [selectedTracker, setSelectedTracker] = useState('botsort');
+  const [studioTask, setStudioTask] = useState('detect');
+  const [taskModelSelections, setTaskModelSelections] = useState(() => getInitialTaskModelSelections());
+  const [browserAssets, setBrowserAssets] = useState({});
+  const [customLabelsByTask, setCustomLabelsByTask] = useState({});
   
   // Refs
   const fileInputRef = useRef(null);
@@ -59,6 +67,7 @@ function App() {
       const response = await axios.get(`${API}/model/info`);
       setModelInfo(response.data);
       setSelectedModel(response.data.active_model);
+      setTaskModelSelections((current) => ({ ...current, detect: response.data.active_model }));
     } catch (error) {
       console.error('Error loading model info:', error);
     }
@@ -169,20 +178,25 @@ function App() {
       const videoUrl = URL.createObjectURL(file);
       setUploadedVideo(videoUrl);
 
-      // Create form data
-      const formData = new FormData();
-      formData.append('file', file);
+      const fileBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1]);
+        reader.onerror = () => reject(new Error('Failed to read video file'));
+        reader.readAsDataURL(file);
+      });
 
       toast.info(`Processing video: ${file.name}. This may take a while...`);
 
-      // Process video
-      const response = await axios.post(`${API}/detect/video`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      const response = await axios.post(`${API}/track`, {
+        video: fileBase64,
+        model: selectedModel,
+        tracker: selectedTracker,
+      }, {
         timeout: 300000 // 5 minutes timeout for video processing
       });
 
       setVideoResults(response.data);
-      toast.success(`Video processed! Found ${response.data.total_detections} detections in ${response.data.processed_frames} frames`);
+      toast.success(`Video processed with ${response.data.tracker}! Found ${response.data.total_detections} detections in ${response.data.processed_frames} frames`);
 
     } catch (error) {
       console.error('Error processing video:', error);
@@ -338,6 +352,8 @@ function App() {
     const ctx = canvas.getContext('2d');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    const baseStroke = Math.max(3, Math.min(4, Math.round(Math.max(canvas.width, canvas.height) / 700)));
+    const boxStrokeWidth = baseStroke * 6;
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -353,7 +369,7 @@ function App() {
       
       // Draw bounding box
       ctx.strokeStyle = color;
-      ctx.lineWidth = 4; // Fixed thickness
+      ctx.lineWidth = boxStrokeWidth;
       ctx.strokeRect(bbox.x1, bbox.y1, bbox.width, bbox.height);
       
       // Draw label background
@@ -472,6 +488,14 @@ function App() {
                 {!isSidebarCollapsed && <span>Batch Processing</span>}
               </button>
               <button 
+                onClick={() => setActiveTab('datasets')}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-md transition-colors text-sm ${activeTab === 'datasets' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'} ${isSidebarCollapsed && 'justify-center'}`}
+                title="Datasets"
+              >
+                <Database className="w-5 h-5 shrink-0" />
+                {!isSidebarCollapsed && <span>Datasets</span>}
+              </button>
+              <button 
                 onClick={() => setActiveTab('video')}
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-md transition-colors text-sm ${activeTab === 'video' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'} ${isSidebarCollapsed && 'justify-center'}`}
                 title="Video Processing"
@@ -549,6 +573,7 @@ function App() {
           >
             <option value="image">Single Image</option>
             <option value="batch">Batch Processing</option>
+            <option value="datasets">Datasets</option>
             <option value="video">Video Processing</option>
             <option value="models">Model Management</option>
           </select>
@@ -556,19 +581,22 @@ function App() {
 
         {/* Scrollable Work Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className={`${activeTab === 'datasets' ? 'max-w-[1440px]' : 'max-w-6xl'} mx-auto space-y-6`}>
             {/* Dynamic Header */}
+            {activeTab !== 'datasets' && (
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-6">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-foreground">
                   {activeTab === 'image' && 'Single Image'}
                   {activeTab === 'batch' && 'Batch Processing'}
+                  {activeTab === 'datasets' && 'Datasets'}
                   {activeTab === 'video' && 'Video Processing'}
                   {activeTab === 'models' && 'Model Management'}
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
                   {activeTab === 'image' && 'Run object detection on individual files.'}
                   {activeTab === 'batch' && 'Process multiple images concurrently.'}
+                  {activeTab === 'datasets' && 'Explore Roboflow Universe datasets and run the active studio task on curated samples.'}
                   {activeTab === 'video' && 'Analyze video files or connect a live camera feed.'}
                   {activeTab === 'models' && 'Configure active models, inspect classes, or upload custom weights.'}
                 </p>
@@ -576,6 +604,15 @@ function App() {
 
               {activeTab === 'video' && (
                 <div className="flex items-center gap-2">
+                  <Select value={selectedTracker} onValueChange={setSelectedTracker}>
+                    <SelectTrigger className="w-[180px] h-9">
+                      <SelectValue placeholder="Tracker" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="botsort">BoT-SORT</SelectItem>
+                      <SelectItem value="bytetrack">ByteTrack</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Dialog open={isCameraDialogOpen} onOpenChange={(open) => {
                     setIsCameraDialogOpen(open);
                     if (!open && isVideoStreaming) stopVideoDetection();
@@ -735,218 +772,38 @@ function App() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Content Tabs (Converted to conditional rendering) */}
 
             {/* Image Detection */}
             {activeTab === 'image' && (
-              <div className="space-y-6">
-                <div className="grid lg:grid-cols-3 gap-6">
-                  
-                  {/* Primary Work Area (Left - 2/3 width) */}
-                  <div className="lg:col-span-2 space-y-6 flex flex-col h-full min-h-[500px]">
-                    {annotatedImage ? (
-                      <Card className="bg-card border-border shadow-sm flex-1 flex flex-col mt-0 h-full max-h-[calc(100vh-12rem)]">
-                        <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b shrink-0">
-                          <div className="space-y-1">
-                            <CardTitle className="text-lg">Image Analysis</CardTitle>
-                          </div>
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={() => {
-                              setAnnotatedImage(null);
-                              setUploadedImage(null);
-                              setDetectionResults(null);
-                            }}
-                          >
-                            Upload New Image
-                          </Button>
-                        </CardHeader>
-                        <CardContent className="p-0 flex items-center justify-center bg-muted/10 flex-1 overflow-hidden relative group/canvas">
-                          <div className="relative w-full h-full flex items-center justify-center">
-                            <img 
-                              src={annotatedImage} 
-                              alt="Annotated" 
-                              className="max-w-full max-h-full object-contain"
-                              onLoad={(e) => {
-                                const img = e.target;
-                                img.dataset.realWidth = img.naturalWidth;
-                                img.dataset.realHeight = img.naturalHeight;
-                              }}
-                            />
-                            
-                            {/* Highlight Overlay */}
-                            {detectionResults && hoveredDetectionIndex !== null && detectionResults.detections[hoveredDetectionIndex] && (
-                              <div 
-                                className="absolute border-[6px] border-white shadow-[0_0_20px_rgba(255,255,255,0.8)] pointer-events-none z-10 transition-all duration-200 rounded-sm"
-                                style={(function() {
-                                  const det = detectionResults.detections[hoveredDetectionIndex];
-                                  const bbox = det.bbox;
-                                  
-                                  // This is a simplified calculation that assumes the image fills the container using object-contain
-                                  // For a more robust solution, we'd need a Ref and a resize listener, but this works well for most cases
-                                  return {
-                                    left: `${(bbox.x1 / detectionResults.original_shape[1]) * 100}%`,
-                                    top: `${(bbox.y1 / detectionResults.original_shape[0]) * 100}%`,
-                                    width: `${((bbox.x2 - bbox.x1) / detectionResults.original_shape[1]) * 100}%`,
-                                    height: `${((bbox.y2 - bbox.y1) / detectionResults.original_shape[0]) * 100}%`,
-                                    boxShadow: `0 0 0 6px ${getColorForClass(hoveredDetectionIndex)}, 0 0 40px ${getColorForClass(hoveredDetectionIndex)}80`
-                                  };
-                                })()}
-                              />
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card className="bg-card border-border shadow-sm flex-1 flex flex-col">
-                        <CardHeader className="shrink-0">
-                          <CardTitle className="flex items-center gap-2">
-                            <Upload className="w-5 h-5" />
-                            Upload Image
-                          </CardTitle>
-                          <CardDescription>
-                            Select an image to detect objects
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4 flex-1 flex flex-col">
-                          <div 
-                            className="flex-1 border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-primary transition-colors cursor-pointer flex flex-col items-center justify-center min-h-[300px]"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            {uploadedImage ? (
-                              <img src={uploadedImage} alt="Uploaded" className="max-h-[400px] object-contain mx-auto rounded-lg" />
-                            ) : (
-                              <div className="space-y-3">
-                                <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
-                                <p className="text-secondary-foreground font-medium">Click to upload an image</p>
-                                <p className="text-sm text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleImageUpload}
-                            accept="image/*"
-                            className="hidden"
-                          />
-                          
-                          <Button 
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isLoading}
-                            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 mt-4 h-12 text-lg shrink-0"
-                          >
-                            {isLoading ? 'Detecting...' : 'Select Image'}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
+              <ImageStudioTab
+                apiBaseUrl={API}
+                detectionModelName={selectedModel}
+                modelInfo={modelInfo}
+                studioTask={studioTask}
+                onStudioTaskChange={setStudioTask}
+                taskModelSelections={taskModelSelections}
+                onTaskModelChange={(task, modelName) => setTaskModelSelections((current) => ({ ...current, [task]: modelName }))}
+                browserAssets={browserAssets}
+                setBrowserAssets={setBrowserAssets}
+                customLabelsByTask={customLabelsByTask}
+                setCustomLabelsByTask={setCustomLabelsByTask}
+                switchModel={switchModel}
+                loadModelInfo={loadModelInfo}
+              />
+            )}
 
-                  {/* Inspector Panel (Right - 1/3 width) */}
-                  <div className="lg:col-span-1 border rounded-lg bg-card shadow-sm flex flex-col h-full lg:max-h-[min(800px,calc(100vh-12rem))] min-h-[500px]">
-                    <div className="p-4 border-b shrink-0 bg-muted/10">
-                      <h3 className="flex items-center gap-2 font-semibold text-foreground">
-                        <Target className="w-4 h-4" />
-                        Inspector
-                      </h3>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-0 flex flex-col">
-                      {isLoading ? (
-                        <div className="flex flex-col items-center justify-center h-full p-8 space-y-4">
-                          <div className="animate-spin rounded-full w-8 h-8 border-2 border-primary border-t-transparent"></div>
-                          <span className="text-sm text-secondary-foreground">Analyzing image...</span>
-                        </div>
-                      ) : detectionResults ? (
-                        <div className="flex flex-col h-full">
-                          {/* Header Stats */}
-                          <div className="px-4 py-3 border-b bg-card shrink-0 flex items-center justify-between">
-                            <span className="text-sm font-medium text-foreground">
-                              {detectionResults.detections.length} objects found
-                            </span>
-                            <Badge variant="outline" className="text-xs font-mono">
-                              {detectionResults.inference_time?.toFixed(2)}s
-                            </Badge>
-                          </div>
-                          
-                          {/* Dense Table of results */}
-                          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                            {detectionResults.detections.length > 0 ? (
-                              detectionResults.detections.map((detection, index) => (
-                                <div 
-                                  key={index} 
-                                  onMouseEnter={() => setHoveredDetectionIndex(index)}
-                                  onMouseLeave={() => setHoveredDetectionIndex(null)}
-                                  onClick={() => setHoveredDetectionIndex(index === hoveredDetectionIndex ? null : index)}
-                                  className={`flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-all group ${index === hoveredDetectionIndex ? 'bg-primary/10 border-primary/20 shadow-inner' : 'hover:bg-muted'}`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className={`w-2.5 h-2.5 rounded-sm transition-transform ${index === hoveredDetectionIndex ? 'scale-125' : ''}`} style={{ backgroundColor: getColorForClass(index) }}></div>
-                                    <span className={`text-sm font-medium capitalize truncate max-w-[120px] ${index === hoveredDetectionIndex ? 'text-primary' : 'text-foreground'}`} title={detection.class_name}>
-                                      {detection.class_name || 'Unknown'}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] text-muted-foreground transition-opacity ${index === hoveredDetectionIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                                      {detection.bbox?.width || 0}×{detection.bbox?.height || 0}
-                                    </span>
-                                    <Badge variant="secondary" className={`font-mono text-xs transition-colors ${index === hoveredDetectionIndex ? 'bg-primary text-primary-foreground border-transparent' : 'bg-primary/10 text-primary border-transparent'}`}>
-                                      {detection.confidence_percentage ? 
-                                        `${detection.confidence_percentage}%` : 
-                                        `${(detection.confidence * 100).toFixed(1)}%`
-                                      }
-                                    </Badge>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="p-6 text-center text-sm text-muted-foreground">
-                                No objects detected above confidence threshold.
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Summary Statistics */}
-                          {detectionResults.summary && (
-                            <div className="shrink-0 p-4 border-t bg-card">
-                              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Summary</div>
-                              <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs">
-                                <div>
-                                  <span className="text-muted-foreground block mb-0.5">Avg Conf</span>
-                                  <span className="font-medium text-foreground">
-                                    {detectionResults.summary.average_confidence ? 
-                                      (detectionResults.summary.average_confidence * 100).toFixed(1) : 'N/A'}%
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground block mb-0.5">Classes</span>
-                                  <span className="font-medium text-foreground">{detectionResults.summary.object_classes?.length || 0}</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          <div className="shrink-0 p-4 border-t border-border bg-muted/5">
-                            <Button onClick={downloadResults} variant="default" className="w-full text-sm">
-                              <Download className="w-4 h-4 mr-2" />
-                              Download Result
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center p-8 text-center text-muted-foreground text-sm">
-                          Upload an image to inspect detections.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-              </div>
+            {activeTab === 'datasets' && (
+              <DatasetsTab
+                apiBaseUrl={API}
+                studioTask={studioTask}
+                taskModelSelections={taskModelSelections}
+                browserAssets={browserAssets}
+                customLabelsByTask={customLabelsByTask}
+                detectionModelName={selectedModel}
+              />
             )}
 
             {activeTab === 'video' && (
